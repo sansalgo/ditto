@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {}
+const nextConfig = {
+  serverExternalPackages: ["chromadb"],
+  turbopack: {
+    root: process.cwd(),
+  },
+}
 
 export default nextConfig
