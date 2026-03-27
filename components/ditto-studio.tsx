@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useRef, useState, useTransition } from "react"
 import {
   Brain,
   Database,
+  FileText,
   MessageSquareText,
   Radar,
   Send,
@@ -27,42 +28,127 @@ import type {
   CreatePersonaResponse,
   PersonalityProfile,
 } from "@/lib/types"
+import { RadioGroup, RadioGroupItem } from "./ui/radio-group"
+import { FieldLabel } from "./ui/field"
 
-const SAMPLE_CHAT = `19/10/25, 15:52 - Messages and calls are end-to-end encrypted. Only people in this chat can read, listen to, or share them. *Learn more*.
-21/10/25, 07:18 - Hari Jr: I can connect via mobile if you’d like, including Santhosh
-21/10/25, 07:23 - SANS: I can join the meeting via mobile if you'd like. Should I ask Santhosh to do the same?
-26/10/25, 15:57 - Hari Jr: Do you get anything epic
-26/10/25, 15:57 - SANS: Nope
-26/10/25, 15:57 - Hari Jr: Y
-26/10/25, 15:57 - Hari Jr: Get it
-26/10/25, 15:57 - SANS: Yes
-29/10/25, 07:03 - Hari Jr: Another day another coffee but place is Madurai
-02/11/25, 20:35 - SANS: Pumpkin
-08/11/25, 06:24 - SANS: DSA
-08/11/25, 06:24 - SANS: No Brawlstars
-11/11/25, 19:01 - SANS: Cool
-11/11/25, 19:09 - SANS: Nice
-11/11/25, 20:46 - SANS: 70 gems`
+const CHAT_TIME_PATTERN = "\\d{1,2}:\\d{2}(?:\\s?[AaPp]\\.?[Mm]\\.?)?"
+const CHAT_LINE_REGEX = new RegExp(
+  `^(\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}), (${CHAT_TIME_PATTERN}) - ([^:]+):\\s?(.*)$`
+)
 
 type ChatTurn = {
   role: "user" | "assistant"
   content: string
 }
 
+function getPersonaOptions(input: string) {
+  const authors = new Set<string>()
+
+  for (const line of input.split(/\r?\n/)) {
+    const match = line.match(CHAT_LINE_REGEX)
+    if (!match) {
+      continue
+    }
+
+    const author = match[3]?.trim()
+    if (author) {
+      authors.add(author)
+    }
+  }
+
+  return [...authors]
+}
+
+function hasValidChatFormat(input: string) {
+  return input.split(/\r?\n/).some((line) => CHAT_LINE_REGEX.test(line))
+}
+
 export function DittoStudio() {
-  const [personaName, setPersonaName] = useState("SANS")
-  const [chatHistory, setChatHistory] = useState(SAMPLE_CHAT)
+  const [personaName, setPersonaName] = useState("")
+  const [chatHistory, setChatHistory] = useState("")
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
+  const [personaOptions, setPersonaOptions] = useState<string[]>([])
   const [message, setMessage] = useState("What game should we play tonight?")
-  const [personaData, setPersonaData] = useState<CreatePersonaResponse | null>(null)
-  const [chatResult, setChatResult] = useState<ChatSimulationResponse | null>(null)
+  const [personaData, setPersonaData] = useState<CreatePersonaResponse | null>(
+    null
+  )
+  const [chatResult, setChatResult] = useState<ChatSimulationResponse | null>(
+    null
+  )
   const [chatTurns, setChatTurns] = useState<ChatTurn[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isCreating, startCreating] = useTransition()
   const [isChatting, startChatting] = useTransition()
+  const previewRef = useRef<HTMLDivElement | null>(null)
 
-  const profile: PersonalityProfile | null = personaData?.persona.profile ?? null
+  const profile: PersonalityProfile | null =
+    personaData?.persona.profile ?? null
+
+  async function handleChatUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    setError(null)
+    setPersonaData(null)
+    setChatResult(null)
+    setChatTurns([])
+
+    const fileName = file.name.toLowerCase()
+    const looksLikeText =
+      file.type.startsWith("text/") || fileName.endsWith(".txt")
+
+    if (!looksLikeText) {
+      setUploadedFileName(null)
+      setChatHistory("")
+      setPersonaName("")
+      setPersonaOptions([])
+      setError("Upload a plain text chat export file in .txt format.")
+      event.target.value = ""
+      return
+    }
+
+    const content = await file.text()
+
+    if (!hasValidChatFormat(content)) {
+      setUploadedFileName(file.name)
+      setChatHistory("")
+      setPersonaName("")
+      setPersonaOptions([])
+      setError(
+        "This file does not match the expected chat format: DD/MM/YY, HH:MM - Name: Message or DD/MM/YY, H:MM am/pm - Name: Message"
+      )
+      event.target.value = ""
+      return
+    }
+
+    const names = getPersonaOptions(content)
+
+    setUploadedFileName(file.name)
+    setChatHistory(content)
+    setPersonaOptions(names)
+    setPersonaName(names[0] ?? "")
+
+    requestAnimationFrame(() => {
+      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    })
+  }
 
   function handleCreatePersona() {
+    if (!chatHistory) {
+      setError("Upload a chat text file first.")
+      return
+    }
+
+    if (!personaName) {
+      setError(
+        "Select a persona name from the uploaded chat before creating the persona."
+      )
+      return
+    }
+
     setError(null)
     setChatResult(null)
 
@@ -102,7 +188,9 @@ export function DittoStudio() {
 
   function handleChat() {
     if (!profile) {
-      setError("Create a persona first so Ditto has a personality profile to simulate.")
+      setError(
+        "Create a persona first so Ditto has a personality profile to simulate."
+      )
       return
     }
 
@@ -154,7 +242,10 @@ export function DittoStudio() {
         <section className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
           <Card className="border-0 bg-card/85 shadow-[0_24px_90px_-40px_rgba(15,23,42,0.45)] backdrop-blur">
             <CardHeader className="gap-3">
-              <Badge variant="outline" className="gap-1 border-border/70 bg-background/70">
+              <Badge
+                variant="outline"
+                className="gap-1 border-border/70 bg-background/70"
+              >
                 <Sparkles />
                 Digital Twin Studio
               </Badge>
@@ -186,10 +277,10 @@ export function DittoStudio() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 bg-slate-950 text-slate-50 shadow-[0_24px_90px_-40px_rgba(15,23,42,0.75)]">
+          <Card className="border-0 bg-card/90 shadow-[0_24px_90px_-40px_rgba(15,23,42,0.45)] backdrop-blur">
             <CardHeader>
               <CardTitle className="text-xl">System Status</CardTitle>
-              <CardDescription className="text-slate-300">
+              <CardDescription>
                 Local-first stack: Next.js, Ollama `llama3`, and Chroma.
               </CardDescription>
             </CardHeader>
@@ -198,7 +289,7 @@ export function DittoStudio() {
               <StatusPill label="Generation" value="Ollama llama3" />
               <StatusPill label="Vector Memory" value="Chroma collection" />
               <StatusPill label="Embedding" value="Default local embedder" />
-              <p className="text-sm leading-6 text-slate-300">
+              <p className="text-sm leading-6 text-muted-foreground">
                 Keep Ollama on `localhost:11434` and Chroma on `localhost:8000`
                 unless you override them with env vars.
               </p>
@@ -211,44 +302,91 @@ export function DittoStudio() {
             <CardHeader>
               <CardTitle className="text-2xl">1. Create Persona</CardTitle>
               <CardDescription>
-                Upload or paste chat history, choose the speaker name, and build
-                the digital twin profile.
+                Upload a chat export, validate the format, pick a detected
+                speaker, and then build the digital twin profile.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="grid gap-4 md:grid-cols-[220px_1fr]">
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="persona-name" className="text-sm font-medium">
-                    Persona name
-                  </label>
-                  <Input
-                    id="persona-name"
-                    value={personaName}
-                    onChange={(event) => setPersonaName(event.target.value)}
-                    placeholder="SANS"
-                  />
+              <div className="grid gap-4 lg:grid-cols-1">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="chat-upload"
+                      className="text-sm font-medium"
+                    >
+                      Chat file
+                    </label>
+                    <Input
+                      id="chat-upload"
+                      type="file"
+                      accept=".txt,text/plain"
+                      onChange={handleChatUpload}
+                      className="cursor-pointer"
+                    />
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      Upload a plain text chat export in WhatsApp-style format.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium">
+                      Detected personas
+                    </label>
+                    <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                      {personaOptions.length > 0 ? (
+                        <RadioGroup
+                          className="flex flex-wrap gap-2"
+                          defaultValue={personaOptions[0]}
+                          onValueChange={(e) => setPersonaName(e)}
+                        >
+                          {personaOptions.map((option, index) => (
+                            <FieldLabel
+                              key={index}
+                              className="cursor-pointer rounded-full border px-3 py-1.5 text-sm transition"
+                            >
+                              {option}
+                              <RadioGroupItem
+                                className="pointer-events-none absolute opacity-0"
+                                value={option}
+                              />
+                            </FieldLabel>
+                          ))}
+                        </RadioGroup>
+                      ) : (
+                        <p className="text-sm leading-6 text-muted-foreground">
+                          Upload a valid chat file to detect available speaker
+                          names.
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="chat-history" className="text-sm font-medium">
-                    Chat history
-                  </label>
-                  <Textarea
-                    id="chat-history"
-                    value={chatHistory}
-                    onChange={(event) => setChatHistory(event.target.value)}
-                    className="min-h-64 font-mono text-xs leading-6"
-                    placeholder="Paste WhatsApp-style chat export here..."
-                  />
+
+                <div ref={previewRef} className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">Chat preview</label>
+                  <div className="max-h-80 overflow-y-auto rounded-2xl border border-border bg-muted/20 p-4">
+                    {chatHistory ? (
+                      <pre className="font-mono text-xs leading-6 whitespace-pre-wrap text-foreground">
+                        {chatHistory}
+                      </pre>
+                    ) : (
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        The uploaded chat preview will appear here after
+                        validation.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <Button onClick={handleCreatePersona} disabled={isCreating}>
+                <Button
+                  onClick={handleCreatePersona}
+                  disabled={isCreating || !chatHistory || !personaName}
+                >
                   <Brain data-icon="inline-start" />
                   {isCreating ? "Building persona..." : "Create Persona"}
                 </Button>
-                <Badge variant="secondary">Target: {personaName || "Unknown"}</Badge>
-                <Badge variant="outline">Sample-ready input loaded</Badge>
               </div>
 
               {error ? (
@@ -293,7 +431,8 @@ export function DittoStudio() {
               <div className="grid gap-3">
                 {chatTurns.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-border bg-muted/40 px-4 py-5 text-sm text-muted-foreground">
-                    Persona chat will appear here after the first simulated turn.
+                    Persona chat will appear here after the first simulated
+                    turn.
                   </div>
                 ) : (
                   chatTurns.map((turn, index) => (
@@ -305,7 +444,7 @@ export function DittoStudio() {
                           : "bg-muted"
                       }`}
                     >
-                      <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-[0.18em] opacity-70">
+                      <div className="mb-1 flex items-center gap-2 text-xs tracking-[0.18em] uppercase opacity-70">
                         {turn.role === "assistant" ? <UserRound /> : <Send />}
                         {turn.role}
                       </div>
@@ -323,22 +462,33 @@ export function DittoStudio() {
             <CardHeader>
               <CardTitle>Extracted Personality Profile</CardTitle>
               <CardDescription>
-                Structured output generated from the persona&apos;s past messages.
+                Structured output generated from the persona&apos;s past
+                messages.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {personaData ? (
                 <>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <Stat label="Messages" value={String(personaData.persona.summary.totalMessages)} />
+                    <Stat
+                      label="Messages"
+                      value={String(personaData.persona.summary.totalMessages)}
+                    />
                     <Stat
                       label="Avg words / msg"
-                      value={String(personaData.persona.summary.averageWordsPerMessage)}
+                      value={String(
+                        personaData.persona.summary.averageWordsPerMessage
+                      )}
                     />
-                    <Stat label="Stored memories" value={String(personaData.storedMemories)} />
+                    <Stat
+                      label="Stored memories"
+                      value={String(personaData.storedMemories)}
+                    />
                     <Stat
                       label="Authors seen"
-                      value={String(personaData.persona.summary.sourceAuthors.length)}
+                      value={String(
+                        personaData.persona.summary.sourceAuthors.length
+                      )}
                     />
                   </div>
                   <pre className="overflow-x-auto rounded-2xl bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100">
@@ -388,7 +538,11 @@ export function DittoStudio() {
   )
 }
 
-function FeatureCard(props: { icon: React.ReactNode; title: string; text: string }) {
+function FeatureCard(props: {
+  icon: React.ReactNode
+  title: string
+  text: string
+}) {
   return (
     <div className="rounded-2xl border border-border/60 bg-background/65 p-4">
       <div className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-muted">
@@ -402,9 +556,9 @@ function FeatureCard(props: { icon: React.ReactNode; title: string; text: string
 
 function StatusPill(props: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-      <span className="text-sm text-slate-300">{props.label}</span>
-      <span className="text-sm font-medium text-white">{props.value}</span>
+    <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+      <span className="text-sm text-muted-foreground">{props.label}</span>
+      <span className="text-sm font-medium">{props.value}</span>
     </div>
   )
 }
@@ -412,10 +566,12 @@ function StatusPill(props: { label: string; value: string }) {
 function Stat(props: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+      <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
         {props.label}
       </p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight">{props.value}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight">
+        {props.value}
+      </p>
     </div>
   )
 }

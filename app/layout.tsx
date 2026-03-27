@@ -7,10 +7,7 @@ import { cn } from "@/lib/utils"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" })
 
-const fontMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-})
+const geistMono = Geist_Mono({subsets:['latin'],variable:'--font-mono'})
 
 export const metadata: Metadata = {
   title: "DITTO | Digital Twin Personality Simulation",
@@ -28,11 +25,9 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
       className={cn(
-        "bg-background antialiased",
-        fontMono.variable,
-        "font-sans",
-        geist.variable
-      )}
+              "bg-background antialiased",
+              geist.variable
+            , "font-mono", geistMono.variable)}
     >
       <body>
         <ThemeProvider>{children}</ThemeProvider>

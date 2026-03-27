@@ -2,14 +2,43 @@ import { createHash } from "node:crypto"
 
 import type { ChatMessage } from "@/lib/types"
 
-const CHAT_LINE_REGEX =
-  /^(\d{1,2}\/\d{1,2}\/\d{2,4}), (\d{1,2}:\d{2}) - ([^:]+):\s?(.*)$/
+const CHAT_TIME_PATTERN = "\\d{1,2}:\\d{2}(?:\\s?[AaPp]\\.?[Mm]\\.?)?"
+const CHAT_LINE_REGEX = new RegExp(
+  `^(\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}), (${CHAT_TIME_PATTERN}) - ([^:]+):\\s?(.*)$`
+)
 
 function normalizeTimestamp(datePart: string, timePart: string) {
   const [day, month, yearRaw] = datePart.split("/")
   const year = yearRaw.length === 2 ? `20${yearRaw}` : yearRaw
   const isoDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-  return `${isoDate} ${timePart}`
+  const normalizedTime = normalizeTime(timePart)
+  return `${isoDate} ${normalizedTime}`
+}
+
+function normalizeTime(timePart: string) {
+  const normalized = timePart.trim().replace(/\s+/g, " ")
+  const match = normalized.match(/^(\d{1,2}):(\d{2})(?:\s?([AaPp])\.?[Mm]\.?)?$/)
+
+  if (!match) {
+    return normalized
+  }
+
+  const [, hourPart, minutePart, meridiem] = match
+  let hour = Number(hourPart)
+
+  if (meridiem) {
+    const normalizedMeridiem = meridiem.toLowerCase()
+
+    if (normalizedMeridiem === "a" && hour === 12) {
+      hour = 0
+    }
+
+    if (normalizedMeridiem === "p" && hour < 12) {
+      hour += 12
+    }
+  }
+
+  return `${String(hour).padStart(2, "0")}:${minutePart}`
 }
 
 function isNoiseLine(content: string) {
