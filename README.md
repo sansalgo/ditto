@@ -4,10 +4,10 @@ DITTO is a local-first digital twin studio built with Next.js, Ollama, and Chrom
 
 ## Project Docs
 
-- [Documentation Index](/c:/Users/SANS/Desktop/ditto/docs/README.md)
-- [Project Report](/c:/Users/SANS/Desktop/ditto/docs/PROJECT_REPORT.md)
-- [Architecture Flowchart](/c:/Users/SANS/Desktop/ditto/docs/PROJECT_FLOWCHART.mmd)
-- [Presentation Generator](/c:/Users/SANS/Desktop/ditto/docs/generate-pptx.ts)
+- [Documentation Index](/docs/README.md)
+- [Project Report](/docs/PROJECT_REPORT.md)
+- [Architecture Flowchart](/docs/PROJECT_FLOWCHART.mmd)
+- [Presentation Generator](/docs/generate-pptx.ts)
 
 ## Stack
 
