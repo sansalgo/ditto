@@ -1,16 +1,6 @@
 "use client"
 
 import { useRef, useState, useTransition } from "react"
-import {
-  Brain,
-  Database,
-  FileText,
-  MessageSquareText,
-  Radar,
-  Send,
-  Sparkles,
-  UserRound,
-} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -30,6 +20,10 @@ import type {
 } from "@/lib/types"
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group"
 import { FieldLabel } from "./ui/field"
+import { BracketsCurlyIcon, BrainIcon, ChatTextIcon, DatabaseIcon, SparkleIcon } from "@phosphor-icons/react"
+import { ArrowRightIcon, MessageSquareTextIcon, Radar, Send, UserRound } from "lucide-react"
+import { Alert, AlertDescription } from "./ui/alert"
+import { ScrollArea } from "./ui/scroll-area"
 
 const CHAT_TIME_PATTERN = "\\d{1,2}:\\d{2}(?:\\s?[AaPp]\\.?[Mm]\\.?)?"
 const CHAT_LINE_REGEX = new RegExp(
@@ -236,8 +230,6 @@ export function DittoStudio() {
 
   return (
     <div className="relative min-h-svh overflow-hidden bg-background">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(209,250,229,0.75),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(191,219,254,0.7),_transparent_24%),linear-gradient(180deg,_rgba(255,255,255,0.92),_rgba(244,247,245,0.98))]" />
-      <div className="absolute inset-x-0 top-0 h-72 bg-[linear-gradient(135deg,rgba(15,23,42,0.04),transparent)]" />
       <main className="relative mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8 lg:px-10">
         <section className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
           <Card className="border-0 bg-card/85 shadow-[0_24px_90px_-40px_rgba(15,23,42,0.45)] backdrop-blur">
@@ -246,7 +238,7 @@ export function DittoStudio() {
                 variant="outline"
                 className="gap-1 border-border/70 bg-background/70"
               >
-                <Sparkles />
+                <SparkleIcon />
                 Digital Twin Studio
               </Badge>
               <CardTitle className="max-w-3xl text-4xl leading-tight font-semibold tracking-tight sm:text-5xl">
@@ -260,17 +252,17 @@ export function DittoStudio() {
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-3">
               <FeatureCard
-                icon={<Radar />}
+                icon={<BracketsCurlyIcon size={24} />}
                 title="Profile Extraction"
                 text="Structured JSON for tone, style, phrases, and sentiment."
               />
               <FeatureCard
-                icon={<Database />}
+                icon={<DatabaseIcon size={24} />}
                 title="Memory Retrieval"
                 text="Embeddings stored in Chroma for top-K contextual recall."
               />
               <FeatureCard
-                icon={<MessageSquareText />}
+                icon={<ChatTextIcon size={24} />}
                 title="Persona Chat"
                 text="LLM replies grounded in profile plus retrieved history."
               />
@@ -332,7 +324,7 @@ export function DittoStudio() {
                     <label className="text-sm font-medium">
                       Detected personas
                     </label>
-                    <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+                    <div className="border border-border/70 bg-background/70 p-4">
                       {personaOptions.length > 0 ? (
                         <RadioGroup
                           className="flex flex-wrap gap-2"
@@ -342,7 +334,7 @@ export function DittoStudio() {
                           {personaOptions.map((option, index) => (
                             <FieldLabel
                               key={index}
-                              className="cursor-pointer rounded-full border px-3 py-1.5 text-sm transition"
+                              className="cursor-pointer border px-3 py-1.5 text-sm transition"
                             >
                               {option}
                               <RadioGroupItem
@@ -364,7 +356,7 @@ export function DittoStudio() {
 
                 <div ref={previewRef} className="flex flex-col gap-2">
                   <label className="text-sm font-medium">Chat preview</label>
-                  <div className="max-h-80 overflow-y-auto rounded-2xl border border-border bg-muted/20 p-4">
+                  <ScrollArea className="max-h-80 border border-border bg-muted/20 p-4">
                     {chatHistory ? (
                       <pre className="font-mono text-xs leading-6 whitespace-pre-wrap text-foreground">
                         {chatHistory}
@@ -375,7 +367,7 @@ export function DittoStudio() {
                         validation.
                       </p>
                     )}
-                  </div>
+                  </ScrollArea>
                 </div>
               </div>
 
@@ -384,15 +376,18 @@ export function DittoStudio() {
                   onClick={handleCreatePersona}
                   disabled={isCreating || !chatHistory || !personaName}
                 >
-                  <Brain data-icon="inline-start" />
+                  <BrainIcon data-icon="inline-start" />
                   {isCreating ? "Building persona..." : "Create Persona"}
                 </Button>
               </div>
 
               {error ? (
-                <div className="rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                  {error}
-                </div>
+                // <div className="border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                //   {error}
+                // </div>
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
               ) : null}
             </CardContent>
           </Card>
@@ -420,7 +415,7 @@ export function DittoStudio() {
 
               <div className="flex flex-wrap items-center gap-3">
                 <Button onClick={handleChat} disabled={isChatting || !profile}>
-                  <Send data-icon="inline-start" />
+                  <ArrowRightIcon data-icon="inline-start" />
                   {isChatting ? "Generating reply..." : "Simulate Reply"}
                 </Button>
                 <Badge variant={profile ? "secondary" : "outline"}>
@@ -430,7 +425,7 @@ export function DittoStudio() {
 
               <div className="grid gap-3">
                 {chatTurns.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-border bg-muted/40 px-4 py-5 text-sm text-muted-foreground">
+                  <div className="border border-dashed border-border bg-muted/40 px-4 py-5 text-sm text-muted-foreground">
                     Persona chat will appear here after the first simulated
                     turn.
                   </div>
@@ -438,7 +433,7 @@ export function DittoStudio() {
                   chatTurns.map((turn, index) => (
                     <div
                       key={`${turn.role}-${index}`}
-                      className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
+                      className={`px-4 py-3 text-sm leading-6 ${
                         turn.role === "assistant"
                           ? "bg-slate-950 text-slate-50"
                           : "bg-muted"
@@ -491,7 +486,7 @@ export function DittoStudio() {
                       )}
                     />
                   </div>
-                  <pre className="overflow-x-auto rounded-2xl bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100">
+                  <pre className="overflow-x-auto bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100">
                     {JSON.stringify(personaData.persona.profile, null, 2)}
                   </pre>
                 </>
@@ -513,7 +508,7 @@ export function DittoStudio() {
                 chatResult.retrievedContext.map((memory) => (
                   <div
                     key={memory.id}
-                    className="rounded-2xl border border-border/80 bg-background/80 px-4 py-3"
+                    className="border border-border/80 bg-background/80 px-4 py-3"
                   >
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       <Badge variant="outline">{memory.author}</Badge>
@@ -544,8 +539,8 @@ function FeatureCard(props: {
   text: string
 }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-background/65 p-4">
-      <div className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-muted">
+    <div className="border border-border/60 bg-background/65 p-4">
+      <div className="mb-3 flex size-10 items-center justify-center bg-muted">
         {props.icon}
       </div>
       <h3 className="mb-1 font-medium">{props.title}</h3>
@@ -556,7 +551,7 @@ function FeatureCard(props: {
 
 function StatusPill(props: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+    <div className="flex items-center justify-between border border-border/70 bg-background/70 px-4 py-3">
       <span className="text-sm text-muted-foreground">{props.label}</span>
       <span className="text-sm font-medium">{props.value}</span>
     </div>
@@ -565,7 +560,7 @@ function StatusPill(props: { label: string; value: string }) {
 
 function Stat(props: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
+    <div className="border border-border/70 bg-background/70 px-4 py-3">
       <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
         {props.label}
       </p>
@@ -578,7 +573,7 @@ function Stat(props: { label: string; value: string }) {
 
 function EmptyPanel(props: { text: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-border bg-muted/40 px-4 py-5 text-sm text-muted-foreground">
+    <div className="border border-dashed border-border bg-muted/40 px-4 py-5 text-sm text-muted-foreground">
       {props.text}
     </div>
   )
