@@ -1,0 +1,73 @@
+flowchart TB
+    User(["User"])
+
+    subgraph UI["Frontend — ditto-studio.tsx"]
+        Upload["File Upload<br>(.txt WhatsApp export)"]
+        PersonaSelect["Persona Selection<br>(speaker name picker)"]
+        ChatInput["Chat Input<br>(simulate reply)"]
+        Display["Response Display<br>(reply + context + profile)"]
+    end
+
+    subgraph Backend["Next.js API Routes"]
+        PersonaAPI["POST /api/personas<br>(persona creation)"]
+        ChatAPI["POST /api/personas/chat<br>(chat simulation)"]
+    end
+
+    subgraph Parsing["lib/chat-parser.ts"]
+        ParseChat["Parse WhatsApp Format<br>(regex line matching)"]
+        FilterMessages["Filter by Persona Name<br>(target speaker only)"]
+    end
+
+    subgraph PersonalityExtraction["lib/personality.ts"]
+        AnalyzePatterns["Analyze Message Patterns<br>(top words, style, tone)"]
+        BuildProfile["Build Personality Profile<br>(JSON: tone, phrases, style)"]
+    end
+
+    subgraph EmbeddingLayer["lib/ollama.ts — Embeddings"]
+        EmbedMessages["Embed Chat Messages<br>(nomic-embed-text)"]
+        EmbedQuery["Embed User Query<br>(nomic-embed-text)"]
+    end
+
+    subgraph VectorDB["ChromaDB<br>ditto_memories_v2"]
+        StoreMemory["Store Embeddings<br>+ metadata (author, timestamp)"]
+        QueryMemory["Semantic Similarity Search<br>(top-5 matches)"]
+    end
+
+    subgraph LLMLayer["lib/ollama.ts — Generation"]
+        BuildPrompt["Build Prompt<br>(profile + context + query)"]
+        GenerateReply["Generate Response<br>(llama3, temp 0.7)"]
+    end
+
+    Ollama[["Ollama<br>localhost:11434"]]
+    Chroma[("Chroma<br>localhost:8000")]
+
+    User -->|"Upload chat file"| Upload
+    Upload -->|"Detected speakers"| PersonaSelect
+    PersonaSelect -->|"POST chatHistory + name"| PersonaAPI
+
+    PersonaAPI --> ParseChat
+    ParseChat --> FilterMessages
+    FilterMessages --> AnalyzePatterns
+    AnalyzePatterns -->|"Top 80 messages"| Ollama
+    Ollama -->|"Extracted JSON profile"| BuildProfile
+
+    FilterMessages --> EmbedMessages
+    EmbedMessages -->|"embed API"| Ollama
+    Ollama -->|"vectors"| StoreMemory
+    StoreMemory --> Chroma
+
+    BuildProfile -->|"profile + summary"| Display
+
+    User -->|"Type message"| ChatInput
+    ChatInput -->|"POST message + profile"| ChatAPI
+
+    ChatAPI --> EmbedQuery
+    EmbedQuery -->|"embed API"| Ollama
+    Ollama -->|"query vector"| QueryMemory
+    QueryMemory --> Chroma
+    Chroma -->|"top-5 similar messages"| BuildPrompt
+    BuildProfile -.->|"personality profile"| BuildPrompt
+    BuildPrompt --> GenerateReply
+    GenerateReply -->|"generate API"| Ollama
+    Ollama -->|"simulated reply"| Display
+    Display -->|"reply + retrieved context"| User
