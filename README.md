@@ -25,10 +25,10 @@ DITTO is a local-first digital twin studio built with Next.js, Ollama, and Chrom
 
 ## Core Files
 
-- [components/ditto-studio.tsx](/c:/Users/SANS/Desktop/ditto/components/ditto-studio.tsx)
-- [app/api/personas/route.ts](/c:/Users/SANS/Desktop/ditto/app/api/personas/route.ts)
-- [app/api/personas/chat/route.ts](/c:/Users/SANS/Desktop/ditto/app/api/personas/chat/route.ts)
-- [lib/chat-parser.ts](/c:/Users/SANS/Desktop/ditto/lib/chat-parser.ts)
-- [lib/personality.ts](/c:/Users/SANS/Desktop/ditto/lib/personality.ts)
-- [lib/ollama.ts](/c:/Users/SANS/Desktop/ditto/lib/ollama.ts)
-- [lib/chroma.ts](/c:/Users/SANS/Desktop/ditto/lib/chroma.ts)
+- [components/ditto-studio.tsx](/components/ditto-studio.tsx)
+- [app/api/personas/route.ts](/app/api/personas/route.ts)
+- [app/api/personas/chat/route.ts](/app/api/personas/chat/route.ts)
+- [lib/chat-parser.ts](/lib/chat-parser.ts)
+- [lib/personality.ts](/lib/personality.ts)
+- [lib/ollama.ts](/lib/ollama.ts)
+- [lib/chroma.ts](/lib/chroma.ts)

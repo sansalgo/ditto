@@ -4,11 +4,11 @@ This folder collects the main project-facing documentation for DITTO.
 
 ## Available Docs
 
-- [Project Report](/c:/Users/SANS/Desktop/ditto/docs/PROJECT_REPORT.md)
-- [Architecture Flowchart](/c:/Users/SANS/Desktop/ditto/docs/PROJECT_FLOWCHART.mmd)
-- [Presentation Generator Script](/c:/Users/SANS/Desktop/ditto/docs/generate-pptx.ts)
-- [Presentation Type Stub](/c:/Users/SANS/Desktop/ditto/docs/pptxgenjs.d.ts)
-- [Generated Presentation](/c:/Users/SANS/Desktop/ditto/docs/DITTO_Project_Report.pptx)
+- [Project Report](/PROJECT_REPORT.md)
+- [Architecture Flowchart](/PROJECT_FLOWCHART.mmd)
+- [Presentation Generator Script](/generate-pptx.ts)
+- [Presentation Type Stub](/pptxgenjs.d.ts)
+- [Generated Presentation](/DITTO_Project_Report.pptx)
 
 ## Recommended Structure
 
