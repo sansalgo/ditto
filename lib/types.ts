@@ -32,6 +32,13 @@ export type RetrievedMemory = {
   distance?: number | null
 }
 
+export type ConversationPair = {
+  contextWindow: string
+  personaReply: string
+  timestamp: string
+  distance?: number | null
+}
+
 export type PersonaRecord = {
   summary: PersonaSummary
   profile: PersonalityProfile
@@ -45,5 +52,5 @@ export type CreatePersonaResponse = {
 
 export type ChatSimulationResponse = {
   reply: string
-  retrievedContext: RetrievedMemory[]
+  retrievedContext: ConversationPair[]
 }

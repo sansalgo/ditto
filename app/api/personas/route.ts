@@ -2,10 +2,11 @@ import { NextResponse } from "next/server"
 
 import {
   getAverageWordsPerMessage,
+  getConversationPairs,
   getPersonaMessages,
   parseChatHistory,
 } from "@/lib/chat-parser"
-import { getChromaConfig, storePersonaMemories } from "@/lib/chroma"
+import { getChromaConfig, storeConversationPairs } from "@/lib/chroma"
 import { getOllamaConfig } from "@/lib/ollama"
 import { buildPersonalityProfile } from "@/lib/personality"
 import type { CreatePersonaResponse, PersonaSummary } from "@/lib/types"
@@ -46,8 +47,12 @@ export async function POST(request: Request) {
       sourceAuthors: [...new Set(messages.map((message) => message.author))],
     }
 
+    // Build (context window → persona reply) pairs from the full message thread.
+    // Short messages and bare URLs are already filtered inside getConversationPairs.
+    const pairs = getConversationPairs(messages, personaName)
+
     const profile = await buildPersonalityProfile(personaName, personaMessages, summary)
-    const storedMemories = await storePersonaMemories(personaName, personaMessages)
+    const storedMemories = await storeConversationPairs(personaName, pairs)
 
     const response: CreatePersonaResponse = {
       persona: {

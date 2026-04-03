@@ -5,6 +5,10 @@ type OllamaResponse = {
   response: string
 }
 
+type OllamaChatResponse = {
+  message: { role: string; content: string }
+}
+
 type OllamaEmbeddingResponse = {
   embeddings?: number[][]
   embedding?: number[]
@@ -34,6 +38,40 @@ export async function generateWithOllama(prompt: string) {
 
   const data = (await response.json()) as OllamaResponse
   return data.response.trim()
+}
+
+export async function chatWithOllama(
+  system: string,
+  history: { role: "user" | "assistant"; content: string }[],
+  userMessage: string
+) {
+  const response = await fetch(`${OLLAMA_URL}/api/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: OLLAMA_MODEL,
+      messages: [
+        { role: "system", content: system },
+        ...history,
+        { role: "user", content: userMessage },
+      ],
+      stream: false,
+      options: {
+        temperature: 0.85,
+      },
+    }),
+    cache: "no-store",
+  })
+
+  if (!response.ok) {
+    const details = await response.text()
+    throw new Error(`Ollama chat request failed (${response.status}): ${details}`)
+  }
+
+  const data = (await response.json()) as OllamaChatResponse
+  return data.message.content.trim()
 }
 
 export async function embedWithOllama(input: string[]) {

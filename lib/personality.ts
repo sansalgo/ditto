@@ -62,31 +62,46 @@ function normalizeProfile(candidate: Partial<PersonalityProfile>, fallbackPhrase
   } satisfies PersonalityProfile
 }
 
+function sampleMessages(messages: ChatMessage[], count: number) {
+  if (messages.length <= count) return messages
+  const step = Math.floor(messages.length / count)
+  return Array.from({ length: count }, (_, i) => messages[i * step])
+}
+
 export async function buildPersonalityProfile(
   personaName: string,
   messages: ChatMessage[],
   summary: PersonaSummary
 ) {
-  const sampleWindow = messages.slice(0, 80)
+  // Sample evenly across the full history so early/late patterns are both captured
+  const sample = sampleMessages(messages.filter((m) => m.content.trim().length >= 4), 100)
   const phrases = topPhrases(messages)
-  const transcript = sampleWindow
+
+  // Build a transcript that shows only this persona's own messages as plain examples
+  const examples = sample
+    .slice(0, 40)
+    .map((m) => JSON.stringify(m.content))
+    .join("\n")
+
+  // Also build a short multi-turn snippet to show conversational rhythm
+  const transcript = sample
+    .slice(0, 60)
     .map((message) => `[${message.timestamp}] ${message.author}: ${message.content}`)
     .join("\n")
 
   const prompt = `
-Analyze the following chat history for ${personaName}.
+You are a conversation analyst. Study the real messages below written by ${personaName} and extract their authentic communication style.
 
-Extract:
-- tone
-- communication style
-- response length
-- common phrases
-- sentiment
-- vocabulary patterns
-- relationship signals
-- notes about how this person usually responds
+Focus on HOW they actually write — not a generic description. Be specific and concrete.
 
-Return ONLY JSON in this exact shape:
+Rules:
+- Base every field on what you actually observe in the messages, not assumptions
+- If they use short replies, say so. If they use slang, name it.
+- commonPhrases must be phrases/words they ACTUALLY use (copy from the messages)
+- Do NOT say "formal and casual" — pick the dominant style
+- notes must describe their real texting personality as if briefing an actor
+
+Return ONLY valid JSON:
 {
   "tone": "string",
   "communicationStyle": "string",
@@ -98,10 +113,12 @@ Return ONLY JSON in this exact shape:
   "notes": "string"
 }
 
-Conversation stats:
-${JSON.stringify(summary, null, 2)}
+Stats: ${summary.totalMessages} messages, avg ${summary.averageWordsPerMessage} words/msg
 
-Chat history:
+Actual messages by ${personaName}:
+${examples}
+
+Conversation context (with timestamps):
 ${transcript}
 `.trim()
 

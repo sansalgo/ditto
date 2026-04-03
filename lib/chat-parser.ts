@@ -96,6 +96,40 @@ export function getPersonaMessages(messages: ChatMessage[], personaName: string)
   )
 }
 
+const URL_RE = /^https?:\/\/\S+$/i
+
+export function getConversationPairs(
+  messages: ChatMessage[],
+  personaName: string,
+  windowSize = 4
+) {
+  const normalized = personaName.trim().toLowerCase()
+  const pairs: { contextWindow: string; personaReply: string; timestamp: string }[] = []
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i]
+    if (msg.author.trim().toLowerCase() !== normalized) continue
+    if (msg.content.trim().length < 4) continue
+    if (URL_RE.test(msg.content.trim())) continue
+
+    const contextStart = Math.max(0, i - windowSize)
+    const context = messages
+      .slice(contextStart, i)
+      .map((m) => `${m.author}: ${m.content}`)
+      .join("\n")
+
+    if (!context.trim()) continue
+
+    pairs.push({
+      contextWindow: context,
+      personaReply: msg.content,
+      timestamp: msg.timestamp,
+    })
+  }
+
+  return pairs
+}
+
 export function getAverageWordsPerMessage(messages: ChatMessage[]) {
   if (messages.length === 0) {
     return 0

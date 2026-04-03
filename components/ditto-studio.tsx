@@ -21,7 +21,7 @@ import type {
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group"
 import { FieldLabel } from "./ui/field"
 import { BracketsCurlyIcon, BrainIcon, ChatTextIcon, DatabaseIcon, SparkleIcon } from "@phosphor-icons/react"
-import { ArrowRightIcon, MessageSquareTextIcon, Radar, Send, UserRound } from "lucide-react"
+import { ArrowRightIcon } from "lucide-react"
 import { Alert, AlertDescription } from "./ui/alert"
 import { ScrollArea } from "./ui/scroll-area"
 
@@ -33,6 +33,7 @@ const CHAT_LINE_REGEX = new RegExp(
 type ChatTurn = {
   role: "user" | "assistant"
   content: string
+  timestamp: string
 }
 
 function getPersonaOptions(input: string) {
@@ -60,7 +61,6 @@ function hasValidChatFormat(input: string) {
 export function DittoStudio() {
   const [personaName, setPersonaName] = useState("")
   const [chatHistory, setChatHistory] = useState("")
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
   const [personaOptions, setPersonaOptions] = useState<string[]>([])
   const [message, setMessage] = useState("What game should we play tonight?")
   const [personaData, setPersonaData] = useState<CreatePersonaResponse | null>(
@@ -95,7 +95,6 @@ export function DittoStudio() {
       file.type.startsWith("text/") || fileName.endsWith(".txt")
 
     if (!looksLikeText) {
-      setUploadedFileName(null)
       setChatHistory("")
       setPersonaName("")
       setPersonaOptions([])
@@ -107,7 +106,6 @@ export function DittoStudio() {
     const content = await file.text()
 
     if (!hasValidChatFormat(content)) {
-      setUploadedFileName(file.name)
       setChatHistory("")
       setPersonaName("")
       setPersonaOptions([])
@@ -192,6 +190,10 @@ export function DittoStudio() {
 
     startChatting(async () => {
       try {
+        const conversationHistory = chatTurns
+          .slice(-6)
+          .map(({ role, content }) => ({ role, content }))
+
         const response = await fetch("/api/personas/chat", {
           method: "POST",
           headers: {
@@ -201,6 +203,7 @@ export function DittoStudio() {
             personaName,
             message,
             profile,
+            conversationHistory,
           }),
         })
 
@@ -213,10 +216,12 @@ export function DittoStudio() {
         }
 
         setChatResult(data)
+        const now = new Date()
+        const ts = `${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1).toString().padStart(2, "0")}/${now.getFullYear().toString().slice(-2)}, ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`
         setChatTurns((current) => [
           ...current,
-          { role: "user", content: message },
-          { role: "assistant", content: data.reply },
+          { role: "user", content: message, timestamp: ts },
+          { role: "assistant", content: data.reply, timestamp: ts },
         ])
       } catch (requestError) {
         setError(
@@ -404,6 +409,22 @@ export function DittoStudio() {
                 <label htmlFor="prompt-message" className="text-sm font-medium">
                   User message
                 </label>
+                <ScrollArea className="h-64 border border-border bg-muted/20 p-4">
+                  {chatTurns.length === 0 ? (
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      Persona chat will appear here after the first simulated turn.
+                    </p>
+                  ) : (
+                    <pre className="font-mono text-xs leading-6 whitespace-pre-wrap text-foreground">
+                      {chatTurns
+                        .map(
+                          (turn) =>
+                            `${turn.timestamp} - ${turn.role === "user" ? "USER" : (personaName || "ASSISTANT")}: ${turn.content}`
+                        )
+                        .join("\n")}
+                    </pre>
+                  )}
+                </ScrollArea>
                 <Textarea
                   id="prompt-message"
                   value={message}
@@ -413,40 +434,14 @@ export function DittoStudio() {
                 />
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Badge variant={profile ? "secondary" : "outline"}>
+                  {profile ? "Persona ready" : "Create a persona first"}
+                </Badge>
                 <Button onClick={handleChat} disabled={isChatting || !profile}>
                   <ArrowRightIcon data-icon="inline-start" />
                   {isChatting ? "Generating reply..." : "Simulate Reply"}
                 </Button>
-                <Badge variant={profile ? "secondary" : "outline"}>
-                  {profile ? "Persona ready" : "Create a persona first"}
-                </Badge>
-              </div>
-
-              <div className="grid gap-3">
-                {chatTurns.length === 0 ? (
-                  <div className="border border-dashed border-border bg-muted/40 px-4 py-5 text-sm text-muted-foreground">
-                    Persona chat will appear here after the first simulated
-                    turn.
-                  </div>
-                ) : (
-                  chatTurns.map((turn, index) => (
-                    <div
-                      key={`${turn.role}-${index}`}
-                      className={`px-4 py-3 text-sm leading-6 ${
-                        turn.role === "assistant"
-                          ? "bg-slate-950 text-slate-50"
-                          : "bg-muted"
-                      }`}
-                    >
-                      <div className="mb-1 flex items-center gap-2 text-xs tracking-[0.18em] uppercase opacity-70">
-                        {turn.role === "assistant" ? <UserRound /> : <Send />}
-                        {turn.role}
-                      </div>
-                      <p>{turn.content}</p>
-                    </div>
-                  ))
-                )}
               </div>
             </CardContent>
           </Card>
@@ -505,20 +500,25 @@ export function DittoStudio() {
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               {chatResult?.retrievedContext.length ? (
-                chatResult.retrievedContext.map((memory) => (
+                chatResult.retrievedContext.map((pair, i) => (
                   <div
-                    key={memory.id}
+                    key={i}
                     className="border border-border/80 bg-background/80 px-4 py-3"
                   >
                     <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">{memory.author}</Badge>
-                      <Badge variant="secondary">{memory.timestamp}</Badge>
-                      <Badge variant="outline">
-                        distance {memory.distance?.toFixed(3) ?? "n/a"}
+                      <Badge variant="secondary">{pair.timestamp}</Badge>
+                      <Badge variant={
+                        (pair.distance ?? 1) < 1.0 ? "default" :
+                        (pair.distance ?? 1) < 1.3 ? "secondary" : "outline"
+                      }>
+                        {(pair.distance ?? 1) < 1.3 ? "relevant" : "distant"} · {pair.distance?.toFixed(3) ?? "n/a"}
                       </Badge>
                     </div>
-                    <p className="text-sm leading-6 text-muted-foreground">
-                      {memory.content}
+                    <pre className="mb-2 font-mono text-xs leading-5 whitespace-pre-wrap text-muted-foreground">
+                      {pair.contextWindow}
+                    </pre>
+                    <p className="border-l-2 border-primary pl-3 text-sm leading-6 text-foreground">
+                      {pair.personaReply}
                     </p>
                   </div>
                 ))
