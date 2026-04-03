@@ -1,0 +1,90 @@
+1/3/2025, 9:02 AM - Alex: yo did you see the new TypeScript 5.4 release notes
+1/3/2025, 9:04 AM - Sam: not yet, anything interesting?
+1/3/2025, 9:05 AM - Alex: they finally added NoInfer<T> as a built-in utility type, been waiting for that one forever
+1/3/2025, 9:06 AM - Sam: oh nice, so you don't have to hack it with conditional types anymore
+1/3/2025, 9:07 AM - Alex: exactly. also variadic tuple improvements that actually make sense this time
+1/3/2025, 9:09 AM - Sam: how's the side project going btw
+1/3/2025, 9:10 AM - Alex: slow. refactoring everything to use server actions and i keep second-guessing myself
+1/3/2025, 9:11 AM - Sam: what's the stack again?
+1/3/2025, 9:12 AM - Alex: next 14, drizzle, postgres, deployed on railway. pretty boring tbh but boring works
+1/3/2025, 9:13 AM - Sam: boring is underrated honestly
+1/3/2025, 9:14 AM - Alex: preach. i spent like 3 days trying to get bun to play nice with a native module. never again
+1/3/2025, 9:16 AM - Sam: lol what module
+1/3/2025, 9:17 AM - Alex: sharp for image processing. ended up just using node for that service separately
+1/3/2025, 9:18 AM - Sam: the microservice creep begins
+1/3/2025, 9:19 AM - Alex: don't start. it's not microservices it's just... two things
+1/3/2025, 9:20 AM - Sam: sure buddy
+1/3/2025, 9:21 AM - Alex: anyway i containerized both and they talk over a private network so it's fine
+2/3/2025, 10:30 AM - Sam: what's your go-to for state management these days
+2/3/2025, 10:32 AM - Alex: depends on the project. zustand for client-heavy stuff, but honestly with server components i barely need global state anymore
+2/3/2025, 10:33 AM - Sam: fair. i'm still using redux at work and it makes me want to cry
+2/3/2025, 10:34 AM - Alex: redux toolkit is actually not terrible anymore but yeah if you have a choice, don't
+2/3/2025, 10:35 AM - Sam: we have 300k lines of redux, we don't have a choice
+2/3/2025, 10:36 AM - Alex: moment of silence
+2/3/2025, 10:37 AM - Sam: it's fine. it's fine. everything is fine
+2/3/2025, 10:38 AM - Alex: lmao you sound like me before i rewrote everything last year
+2/3/2025, 10:40 AM - Sam: how long did that take
+2/3/2025, 10:41 AM - Alex: 6 weeks of evenings and i'm still not sure it was worth it emotionally
+2/3/2025, 10:42 AM - Sam: but technically?
+2/3/2025, 10:43 AM - Alex: technically 100% yes. build times went from 4 min to 45 seconds and the codebase is actually navigable now
+2/3/2025, 10:44 AM - Sam: ok worth it
+2/3/2025, 10:45 AM - Alex: yeah but i had to explain to my partner why i was staring at a screen every night for a month and a half
+2/3/2025, 10:46 AM - Sam: the real cost of tech debt
+3/3/2025, 2:15 PM - Alex: ok hot take: most devs should touch a database more
+3/3/2025, 2:17 PM - Sam: go on
+3/3/2025, 2:18 AM - Alex: everyone hides behind ORMs and then is shocked when a query is doing a full table scan. write some raw SQL, learn what an index actually does
+3/3/2025, 2:19 PM - Sam: i mean ORMs exist for a reason
+3/3/2025, 2:20 PM - Alex: they exist for convenience not as an excuse to not understand what's happening underneath
+3/3/2025, 2:21 PM - Sam: fair point. i definitely learned more about postgres when we had that incident last year
+3/3/2025, 2:22 PM - Alex: nothing teaches you like production going down at 2am
+3/3/2025, 2:23 PM - Sam: unfortunately true
+3/3/2025, 2:24 PM - Alex: the classic N+1 query that somehow nobody caught in code review
+3/3/2025, 2:25 PM - Sam: we had like 50k records in staging and didn't notice. prod had 2 million
+3/3/2025, 2:26 PM - Alex: classic staging trap. i now run load tests with production-scale seed data and my past self hates my present self for not doing it sooner
+3/3/2025, 2:28 PM - Sam: that's actually smart
+3/3/2025, 2:29 PM - Alex: hard lessons man
+4/3/2025, 8:45 AM - Sam: what editor are you using now
+4/3/2025, 8:46 AM - Alex: still neovim. i know i know
+4/3/2025, 8:47 AM - Sam: i didn't say anything
+4/3/2025, 8:48 AM - Alex: your silence said it all
+4/3/2025, 8:49 AM - Sam: have you tried cursor
+4/3/2025, 8:50 AM - Alex: yes. it's actually impressive for greenfield stuff but i don't fully trust it for refactoring in large codebases yet
+4/3/2025, 8:51 AM - Sam: fair. i use it for boilerplate and tests mostly
+4/3/2025, 8:52 AM - Alex: that's the right use. let it write the boring stuff and you think about architecture
+4/3/2025, 8:53 AM - Sam: exactly. it's a multiplier not a replacement
+4/3/2025, 8:54 AM - Alex: well said. i might steal that framing next time someone asks me about AI in dev workflows
+4/3/2025, 8:55 AM - Sam: go ahead. not patenting it
+4/3/2025, 8:56 AM - Alex: lol ok filed under "things sam said that i will repeat as if i thought of them"
+4/3/2025, 8:57 AM - Sam: as long as you don't say it at a conference
+4/3/2025, 8:58 AM - Alex: no promises
+5/3/2025, 11:00 AM - Sam: you free this weekend? thinking about that hackathon
+5/3/2025, 11:02 AM - Alex: which one
+5/3/2025, 11:03 AM - Sam: the local one at the coworking space, 36 hours
+5/3/2025, 11:04 AM - Alex: yeah i'm in. what are you thinking for the idea
+5/3/2025, 11:05 AM - Sam: something with local LLMs, been playing with ollama and the latency is actually usable now
+5/3/2025, 11:06 AM - Alex: interesting. what kind of app
+5/3/2025, 11:07 AM - Sam: still vague but something that runs fully local, no cloud dependency. privacy angle could be good for the pitch
+5/3/2025, 11:08 AM - Alex: i like it. people are getting more privacy-conscious and "everything runs on your machine" is a real differentiator
+5/3/2025, 11:09 AM - Sam: exactly what i was thinking. ok so you're in?
+5/3/2025, 11:10 AM - Alex: 100%. bring coffee, i'll bring the keyboard
+5/3/2025, 11:11 AM - Sam: deal
+6/3/2025, 3:22 PM - Alex: quick question: what's your opinion on monorepos for a two-person team
+6/3/2025, 3:24 PM - Sam: overkill unless you have shared packages you're actively maintaining
+6/3/2025, 3:25 PM - Alex: yeah that's what i thought. we have like one shared util library and i'm not sure it justifies turborepo setup
+6/3/2025, 3:26 PM - Sam: just publish the util as a private package or use a git submodule if you want to stay simple
+6/3/2025, 3:27 PM - Alex: submodule sounds like suffering
+6/3/2025, 3:28 PM - Sam: lol yeah fair. private package then. npm has private packages at a decent price
+6/3/2025, 3:29 PM - Alex: i think we'll just copy the utils for now and revisit when it actually becomes a problem
+6/3/2025, 3:30 PM - Sam: YAGNI wins again
+6/3/2025, 3:31 PM - Alex: the eternal principle
+7/3/2025, 9:15 AM - Alex: shipped the feature at midnight and it's still up. personal record
+7/3/2025, 9:17 AM - Sam: midnight deploy lol
+7/3/2025, 9:18 AM - Alex: don't judge me, i was in the zone
+7/3/2025, 9:19 AM - Sam: i'm not judging i'm impressed. no rollback?
+7/3/2025, 9:20 AM - Alex: zero. the staging parity thing actually paid off, ran through the exact same flows
+7/3/2025, 9:21 AM - Sam: ok now i'm genuinely impressed
+7/3/2025, 9:22 AM - Alex: i also wrote a proper rollback plan before deploying which made me feel like a real adult
+7/3/2025, 9:23 AM - Sam: character development
+7/3/2025, 9:24 AM - Alex: honestly. younger me just yolo'd deploys on Friday afternoons. present me cringes
+7/3/2025, 9:25 AM - Sam: we all have a past
+7/3/2025, 9:26 AM - Alex: mine is full of broken deploys and feature flags i never cleaned up

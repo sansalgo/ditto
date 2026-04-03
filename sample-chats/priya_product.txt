@@ -1,0 +1,72 @@
+3/3/2025, 9:30 AM - Priya: had the most frustrating sprint planning yesterday. team keeps pulling in work without sizing it first
+3/3/2025, 9:32 AM - Nadia: classic. what kind of work
+3/3/2025, 9:33 AM - Priya: eng wanted to add "quick" refactors that turned into a 3-day rabbit hole discussion. nothing is quick when you don't scope it first
+3/3/2025, 9:34 AM - Nadia: do you have a scoping template or is it all vibes
+3/3/2025, 9:35 AM - Priya: we have one but nobody uses it consistently. i think i need to make it a hard gate before anything enters the sprint
+3/3/2025, 9:36 AM - Nadia: friction as a feature
+3/3/2025, 9:37 AM - Priya: exactly. if you can't fill out 5 fields in 10 minutes, the work isn't ready
+3/3/2025, 9:38 AM - Nadia: what do you put in the 5 fields
+3/3/2025, 9:39 AM - Priya: problem statement, success metric, acceptance criteria, rough effort estimate, who's affected if it slips. that's it
+3/3/2025, 9:40 AM - Nadia: that's actually really clean
+3/3/2025, 9:41 AM - Priya: borrowed and adapted from a framework i saw at a conference 2 years ago. the key is "who's affected if it slips" because it forces you to think about priority, not just urgency
+4/3/2025, 11:00 AM - Nadia: how do you handle conflicting priorities from different stakeholders
+4/3/2025, 11:02 AM - Priya: this is the eternal question
+4/3/2025, 11:03 AM - Nadia: lol yes
+4/3/2025, 11:04 AM - Priya: honestly the most useful thing i've done is force a shared prioritization session where every stakeholder has to rank everything together in the same room. no async back-and-forth
+4/3/2025, 11:05 AM - Nadia: doesn't that just turn into whoever shouts loudest wins
+4/3/2025, 11:06 AM - Priya: it can if you don't facilitate well. i use a simple scoring matrix: impact on revenue, impact on retention, effort, strategic alignment. everyone scores independently then you compare
+4/3/2025, 11:07 AM - Nadia: and when scores differ wildly?
+4/3/2025, 11:08 AM - Priya: that's where the real conversation happens. score divergence is a signal that people have different assumptions. surface those assumptions and you usually find alignment faster than arguing about priority
+4/3/2025, 11:09 AM - Nadia: that's smart. assumptions are the actual disagreement not the priority
+4/3/2025, 11:10 AM - Priya: yes! exactly. most prioritization fights are actually information asymmetry fights
+5/3/2025, 2:15 PM - Priya: user interview this afternoon and i'm genuinely excited. we're testing a concept that could change how the whole onboarding flow works
+5/3/2025, 2:17 PM - Nadia: what's the concept
+5/3/2025, 2:18 PM - Priya: instead of a linear setup wizard, letting users declare their goal first and then showing only the steps relevant to that goal. reducing cognitive load by 60-70% theoretically
+5/3/2025, 2:19 PM - Nadia: goal-first onboarding, i've seen that work well in some products
+5/3/2025, 2:20 PM - Priya: the hypothesis is that most drop-off in our current flow is because we show features that aren't relevant to what they actually came to do
+5/3/2025, 2:21 PM - Nadia: how are you testing it? prototype?
+5/3/2025, 2:22 PM - Priya: figma prototype. high fidelity enough that it feels real, low fidelity enough that i don't cry when we throw it away
+5/3/2025, 2:23 PM - Nadia: lol that's the sweet spot
+5/3/2025, 2:24 PM - Priya: the design team called it "medium fidelity with commitment issues" and honestly accurate
+6/3/2025, 9:00 AM - Priya: three interviews yesterday, strong signal. all three users said the goal-first approach felt "less overwhelming"
+6/3/2025, 9:02 AM - Nadia: that's pretty clean validation
+6/3/2025, 9:03 AM - Priya: the interesting one was a user who tried to pick multiple goals and was frustrated she couldn't. that's a real edge case we hadn't thought about
+6/3/2025, 9:04 AM - Nadia: multi-goal users. probably power users?
+6/3/2025, 9:05 AM - Priya: she was actually a new user who just had a complex setup situation. made me think we need a "something else / custom setup" escape hatch
+6/3/2025, 9:06 AM - Nadia: yeah. don't optimize the main path at the expense of edge cases that aren't that edgy
+6/3/2025, 9:07 AM - Priya: exactly. the escape hatch doesn't need to be pretty, it just needs to exist
+6/3/2025, 9:08 AM - Nadia: i really like how you think about edge cases as design signals not exceptions to ignore
+6/3/2025, 9:09 AM - Priya: i got burned early in my career by treating edge cases as out of scope. one of them came back as a P0 incident 6 months later
+6/3/2025, 9:10 AM - Nadia: painful way to learn but effective
+6/3/2025, 9:11 AM - Priya: i think about that incident every time i'm tempted to say "we'll handle that later"
+7/3/2025, 1:00 PM - Nadia: quick question: how do you write a good PRD without it turning into a novel
+7/3/2025, 1:02 PM - Priya: ruthless editing and a strict structure. i use: one paragraph context, one paragraph problem statement, bullet list of goals and non-goals, key open questions, proposed solution options (not one right answer), metrics for success
+7/3/2025, 1:03 PM - Nadia: non-goals are often more useful than goals tbh
+7/3/2025, 1:04 PM - Priya: always. it prevents scope creep and forces you to have the hard conversation with stakeholders upfront instead of mid-sprint
+7/3/2025, 1:05 PM - Nadia: "proposed solution options" — you give multiple options?
+7/3/2025, 1:06 PM - Priya: yes, usually 2-3. it stops the PRD from feeling like a command and opens conversation. engineers often have better ideas than my first instinct when they see the option space
+7/3/2025, 1:07 PM - Nadia: i love that. making it collaborative from the start
+7/3/2025, 1:08 PM - Priya: the people implementing something will always know things you don't. involving them in the decision early means less surprises and better buy-in
+8/3/2025, 10:30 AM - Priya: one thing i've been thinking about: how do you know when to kill a feature
+8/3/2025, 10:32 AM - Nadia: ooh. do you have one you're considering
+8/3/2025, 10:33 AM - Priya: we have a reporting module that 4% of users use but takes about 20% of eng maintenance time. the debate in the team is heated
+8/3/2025, 10:34 AM - Nadia: 4% is low. but is it 4% of users or 4% of revenue
+8/3/2025, 10:35 AM - Priya: that's the thing. it's used heavily by 3 enterprise accounts that together represent a lot of ARR
+8/3/2025, 10:36 AM - Nadia: yeah that changes everything
+8/3/2025, 10:37 AM - Priya: exactly. so the real question isn't usage percentage, it's strategic value and replacement cost. if we sunset it, can those accounts get what they need elsewhere?
+8/3/2025, 10:38 AM - Nadia: have you talked to those accounts?
+8/3/2025, 10:39 AM - Priya: scheduling calls this week. i want to understand whether the reporting is a nice-to-have or a workflow they've built their operations around
+8/3/2025, 10:40 AM - Nadia: smart. the answer to "should we kill this" is usually hidden in the customer conversation not the analytics
+8/3/2025, 10:41 AM - Priya: always. data tells you what, customers tell you why
+9/3/2025, 4:00 PM - Nadia: how do you stay close to users when you're also doing so much strategy and stakeholder work
+9/3/2025, 4:02 PM - Priya: i protect a minimum of 2 user interviews per week, no exceptions. it's in my calendar as a recurring block that i don't let meetings eat
+9/3/2025, 4:03 PM - Nadia: 2 per week is impressive discipline
+9/3/2025, 4:04 PM - Priya: it took me a year to make it a real habit. early in my PM career i'd go months without talking to users and then wonder why my intuition was off
+9/3/2025, 4:05 PM - Nadia: what do you do with the outputs
+9/3/2025, 4:06 PM - Priya: i keep a rotating insight log. after each interview i add 3-5 observations tagged by theme. once a month i review the themes and see what's emerging
+9/3/2025, 4:07 PM - Nadia: that's such a good system
+9/3/2025, 4:08 PM - Priya: it sounds more organized than it is. it's a notion database with a few tags but the habit is the thing, not the tool
+9/3/2025, 4:09 PM - Nadia: "the habit is the thing not the tool" — quote for the wall
+9/3/2025, 4:10 PM - Priya: lol too many PMs spend 80% of the time picking their second brain app and 20% actually thinking. i've been guilty of this
+9/3/2025, 4:11 PM - Nadia: we all have
+9/3/2025, 4:12 PM - Priya: the dumbest version of any system that you actually use beats the sophisticated version you don't
