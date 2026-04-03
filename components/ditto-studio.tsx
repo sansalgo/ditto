@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -20,10 +20,16 @@ import type {
 } from "@/lib/types"
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group"
 import { FieldLabel } from "./ui/field"
-import { BracketsCurlyIcon, BrainIcon, ChatTextIcon, DatabaseIcon, SparkleIcon } from "@phosphor-icons/react"
+import {
+  BracketsCurlyIcon,
+  BrainIcon,
+  ChatTextIcon,
+  DatabaseIcon,
+  SparkleIcon,
+} from "@phosphor-icons/react"
 import { ArrowRightIcon } from "lucide-react"
 import { Alert, AlertDescription } from "./ui/alert"
-import { ScrollArea } from "./ui/scroll-area"
+import { ScrollArea, ScrollBar } from "./ui/scroll-area"
 
 const CHAT_TIME_PATTERN = "\\d{1,2}:\\d{2}(?:\\s?[AaPp]\\.?[Mm]\\.?)?"
 const CHAT_LINE_REGEX = new RegExp(
@@ -62,7 +68,7 @@ export function DittoStudio() {
   const [personaName, setPersonaName] = useState("")
   const [chatHistory, setChatHistory] = useState("")
   const [personaOptions, setPersonaOptions] = useState<string[]>([])
-  const [message, setMessage] = useState("What game should we play tonight?")
+  const [message, setMessage] = useState("")
   const [personaData, setPersonaData] = useState<CreatePersonaResponse | null>(
     null
   )
@@ -74,6 +80,11 @@ export function DittoStudio() {
   const [isCreating, startCreating] = useTransition()
   const [isChatting, startChatting] = useTransition()
   const previewRef = useRef<HTMLDivElement | null>(null)
+  const chatEndRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ block: "nearest" })
+  }, [chatTurns, isChatting])
 
   const profile: PersonalityProfile | null =
     personaData?.persona.profile ?? null
@@ -118,7 +129,6 @@ export function DittoStudio() {
 
     const names = getPersonaOptions(content)
 
-    setUploadedFileName(file.name)
     setChatHistory(content)
     setPersonaOptions(names)
     setPersonaName(names[0] ?? "")
@@ -186,14 +196,27 @@ export function DittoStudio() {
       return
     }
 
+    if (!message.trim()) return
+
     setError(null)
+
+    const userMsg = message
+    setMessage("")
+
+    const now = new Date()
+    const ts = `${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1).toString().padStart(2, "0")}/${now.getFullYear().toString().slice(-2)}, ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`
+
+    const conversationHistory = chatTurns
+      .slice(-6)
+      .map(({ role, content }) => ({ role, content }))
+
+    setChatTurns((current) => [
+      ...current,
+      { role: "user", content: userMsg, timestamp: ts },
+    ])
 
     startChatting(async () => {
       try {
-        const conversationHistory = chatTurns
-          .slice(-6)
-          .map(({ role, content }) => ({ role, content }))
-
         const response = await fetch("/api/personas/chat", {
           method: "POST",
           headers: {
@@ -201,7 +224,7 @@ export function DittoStudio() {
           },
           body: JSON.stringify({
             personaName,
-            message,
+            message: userMsg,
             profile,
             conversationHistory,
           }),
@@ -216,11 +239,8 @@ export function DittoStudio() {
         }
 
         setChatResult(data)
-        const now = new Date()
-        const ts = `${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1).toString().padStart(2, "0")}/${now.getFullYear().toString().slice(-2)}, ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`
         setChatTurns((current) => [
           ...current,
-          { role: "user", content: message, timestamp: ts },
           { role: "assistant", content: data.reply, timestamp: ts },
         ])
       } catch (requestError) {
@@ -243,7 +263,6 @@ export function DittoStudio() {
                 variant="outline"
                 className="gap-1 border-border/70 bg-background/70"
               >
-                <SparkleIcon />
                 Digital Twin Studio
               </Badge>
               <CardTitle className="max-w-3xl text-4xl leading-tight font-semibold tracking-tight sm:text-5xl">
@@ -372,6 +391,7 @@ export function DittoStudio() {
                         validation.
                       </p>
                     )}
+                    <ScrollBar orientation="horizontal" />
                   </ScrollArea>
                 </div>
               </div>
@@ -410,27 +430,40 @@ export function DittoStudio() {
                   User message
                 </label>
                 <ScrollArea className="h-64 border border-border bg-muted/20 p-4">
-                  {chatTurns.length === 0 ? (
+                  {chatTurns.length === 0 && !isChatting ? (
                     <p className="text-sm leading-6 text-muted-foreground">
-                      Persona chat will appear here after the first simulated turn.
+                      Persona chat will appear here after the first simulated
+                      turn.
                     </p>
                   ) : (
-                    <pre className="font-mono text-xs leading-6 whitespace-pre-wrap text-foreground">
-                      {chatTurns
-                        .map(
-                          (turn) =>
-                            `${turn.timestamp} - ${turn.role === "user" ? "USER" : (personaName || "ASSISTANT")}: ${turn.content}`
-                        )
-                        .join("\n")}
-                    </pre>
+                    <>
+                      <pre className="font-mono text-xs leading-6 whitespace-pre-wrap text-foreground">
+                        {chatTurns
+                          .map(
+                            (turn) =>
+                              `${turn.timestamp} - ${turn.role === "user" ? "USER" : personaName || "ASSISTANT"}: ${turn.content}`
+                          )
+                          .join("\n")}
+                      </pre>
+                      {isChatting && (
+                        <TypingIndicator name={personaName || "ASSISTANT"} />
+                      )}
+                    </>
                   )}
+                  <div ref={chatEndRef} />
                 </ScrollArea>
                 <Textarea
                   id="prompt-message"
                   value={message}
                   onChange={(event) => setMessage(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault()
+                      handleChat()
+                    }
+                  }}
                   className="min-h-24"
-                  placeholder="Ask the persona something..."
+                  placeholder="Ask the persona something… (Enter to send)"
                 />
               </div>
 
@@ -481,9 +514,12 @@ export function DittoStudio() {
                       )}
                     />
                   </div>
-                  <pre className="overflow-x-auto bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100">
-                    {JSON.stringify(personaData.persona.profile, null, 2)}
-                  </pre>
+                  <ScrollArea className="border border-border/70 bg-background/70 p-4">
+                    <pre className="overflow-x-auto font-mono text-xs leading-6 text-slate-100">
+                      {JSON.stringify(personaData.persona.profile, null, 2)}
+                    </pre>
+                    <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
                 </>
               ) : (
                 <EmptyPanel text="Create a persona to inspect the extracted JSON profile." />
@@ -507,11 +543,17 @@ export function DittoStudio() {
                   >
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       <Badge variant="secondary">{pair.timestamp}</Badge>
-                      <Badge variant={
-                        (pair.distance ?? 1) < 1.0 ? "default" :
-                        (pair.distance ?? 1) < 1.3 ? "secondary" : "outline"
-                      }>
-                        {(pair.distance ?? 1) < 1.3 ? "relevant" : "distant"} · {pair.distance?.toFixed(3) ?? "n/a"}
+                      <Badge
+                        variant={
+                          (pair.distance ?? 1) < 1.0
+                            ? "default"
+                            : (pair.distance ?? 1) < 1.3
+                              ? "secondary"
+                              : "outline"
+                        }
+                      >
+                        {(pair.distance ?? 1) < 1.3 ? "relevant" : "distant"} ·{" "}
+                        {pair.distance?.toFixed(3) ?? "n/a"}
                       </Badge>
                     </div>
                     <pre className="mb-2 font-mono text-xs leading-5 whitespace-pre-wrap text-muted-foreground">
@@ -576,5 +618,22 @@ function EmptyPanel(props: { text: string }) {
     <div className="border border-dashed border-border bg-muted/40 px-4 py-5 text-sm text-muted-foreground">
       {props.text}
     </div>
+  )
+}
+
+function TypingIndicator(props: { name: string }) {
+  const [dots, setDots] = useState(".")
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setDots((d) => (d.length >= 3 ? "." : d + "."))
+    }, 400)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <pre className="font-mono text-xs leading-6 whitespace-pre-wrap text-muted-foreground">
+      {`${props.name}: ${dots}`}
+    </pre>
   )
 }
