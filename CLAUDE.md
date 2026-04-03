@@ -27,13 +27,14 @@ bun run typecheck  # tsc --noEmit (no test suite exists)
 1. **Upload** — `POST /api/personas` receives raw WhatsApp chat text
    - `lib/chat-parser.ts` parses into `ChatMessage[]` via regex
    - `lib/personality.ts` builds a `PersonalityProfile` JSON by prompting Ollama
-   - `lib/chat-parser.ts` also derives `(context window -> persona reply)` examples
-   - `lib/ollama.ts` generates embeddings (`nomic-embed-text`) for the context side
-   - `lib/chroma.ts` upserts conversation pairs into ChromaDB
+   - `lib/chat-parser.ts` also derives `(context window → persona reply)` pairs via `getConversationPairs()` (4-message sliding window)
+   - `lib/ollama.ts` generates embeddings (`nomic-embed-text`) for the **context** side of each pair
+   - `lib/chroma.ts` upserts conversation pairs into ChromaDB (deduped by SHA-1 of `personaName:context:reply`)
 
 2. **Chat** — `POST /api/personas/chat` generates a reply
    - `lib/chroma.ts` similarity-searches ChromaDB for the closest context windows filtered by `personaName`
-   - `lib/ollama.ts` calls Ollama `llama3` chat API with a system prompt built from retrieved conversation pairs + personality profile + recent turns
+   - Pairs with cosine distance ≥ 1.3 (`RELEVANCE_THRESHOLD`) are excluded from the few-shot prompt but still returned in `retrievedContext`
+   - `lib/ollama.ts` calls Ollama `llama3` chat API with a system prompt built from usable pairs + personality profile + last 6 turns of `conversationHistory`
 
 ### Key Files
 
