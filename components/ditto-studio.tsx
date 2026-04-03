@@ -20,13 +20,7 @@ import type {
 } from "@/lib/types"
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group"
 import { FieldLabel } from "./ui/field"
-import {
-  BracketsCurlyIcon,
-  BrainIcon,
-  ChatTextIcon,
-  DatabaseIcon,
-  SparkleIcon,
-} from "@phosphor-icons/react"
+import { BracketsCurlyIcon, BrainIcon, ChatTextIcon, DatabaseIcon } from "@phosphor-icons/react"
 import { ArrowRightIcon } from "lucide-react"
 import { Alert, AlertDescription } from "./ui/alert"
 import { ScrollArea, ScrollBar } from "./ui/scroll-area"
@@ -270,25 +264,25 @@ export function DittoStudio() {
               </CardTitle>
               <CardDescription className="max-w-2xl text-base leading-7">
                 DITTO ingests messages, extracts tone and vocabulary, stores
-                memories in Chroma, and responds using Ollama-powered persona
-                prompting.
+                conversation pairs in Chroma, and replies using few-shot
+                examples drawn from real past exchanges — powered by Ollama.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-3">
-              <FeatureCard
-                icon={<BracketsCurlyIcon size={24} />}
+            <CardContent className="flex flex-col gap-2">
+              <FeatureRow
+                icon={<BracketsCurlyIcon size={18} />}
                 title="Profile Extraction"
                 text="Structured JSON for tone, style, phrases, and sentiment."
               />
-              <FeatureCard
-                icon={<DatabaseIcon size={24} />}
-                title="Memory Retrieval"
-                text="Embeddings stored in Chroma for top-K contextual recall."
+              <FeatureRow
+                icon={<DatabaseIcon size={18} />}
+                title="Pair Retrieval"
+                text="Context-window embeddings in Chroma surface the most relevant past exchanges by situation."
               />
-              <FeatureCard
-                icon={<ChatTextIcon size={24} />}
+              <FeatureRow
+                icon={<ChatTextIcon size={18} />}
                 title="Persona Chat"
-                text="LLM replies grounded in profile plus retrieved history."
+                text="LLM replies grounded in few-shot examples from real pairs plus full conversation history."
               />
             </CardContent>
           </Card>
@@ -303,8 +297,8 @@ export function DittoStudio() {
             <CardContent className="flex flex-col gap-4">
               <StatusPill label="Frontend" value="Next.js App Router" />
               <StatusPill label="Generation" value="Ollama llama3" />
-              <StatusPill label="Vector Memory" value="Chroma collection" />
-              <StatusPill label="Embedding" value="Default local embedder" />
+              <StatusPill label="Vector Memory" value="Chroma ditto_pairs_v1" />
+              <StatusPill label="Embedding" value="nomic-embed-text" />
               <p className="text-sm leading-6 text-muted-foreground">
                 Keep Ollama on `localhost:11434` and Chroma on `localhost:8000`
                 unless you override them with env vars.
@@ -575,18 +569,14 @@ export function DittoStudio() {
   )
 }
 
-function FeatureCard(props: {
-  icon: React.ReactNode
-  title: string
-  text: string
-}) {
+function FeatureRow(props: { icon: React.ReactNode; title: string; text: string }) {
   return (
-    <div className="border border-border/60 bg-background/65 p-4">
-      <div className="mb-3 flex size-10 items-center justify-center bg-muted">
-        {props.icon}
+    <div className="flex items-start gap-3 border border-border/60 bg-background/65 px-4 py-3">
+      <div className="mt-0.5 shrink-0 text-foreground">{props.icon}</div>
+      <div>
+        <h3 className="mb-0.5 text-sm font-medium">{props.title}</h3>
+        <p className="text-sm leading-6 text-muted-foreground">{props.text}</p>
       </div>
-      <h3 className="mb-1 font-medium">{props.title}</h3>
-      <p className="text-sm leading-6 text-muted-foreground">{props.text}</p>
     </div>
   )
 }
