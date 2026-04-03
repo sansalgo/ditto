@@ -64,30 +64,30 @@ function addHeader(slide: Slide, title: string) {
     {
       title: "Large Language Models (LLMs)",
       body: "Rapid growth of LLMs opened new possibilities for NLU and generation. A key emerging application is personality simulation — prompting AI to mimic a specific person's communication style based on their past messages.",
-      x: 0.3, y: 0.95,
+      x: 0.3, y: 0.88,
     },
     {
       title: "Retrieval-Augmented Generation (RAG)",
       body: "Enhances LLM responses by first retrieving semantically relevant documents from a vector database and injecting them into the prompt — grounding output in real evidence rather than hallucination.",
-      x: 5.2, y: 0.95,
+      x: 5.2, y: 0.88,
     },
     {
-      title: "Vector Embeddings",
-      body: "Convert text into dense numerical representations that capture semantic meaning. Similar texts cluster together in embedding space, enabling retrieval of the most contextually relevant messages via cosine similarity.",
-      x: 0.3, y: 3.3,
+      title: "Conversation-Pair RAG",
+      body: "A refinement of standard RAG that stores (trigger → response) pairs instead of isolated utterances. The embedding is on the trigger side so retrieval finds the most similar situations — and the paired response serves as a few-shot example.",
+      x: 0.3, y: 3.2,
     },
     {
       title: "Ollama & ChromaDB",
       body: "Ollama: local inference runtime for LLaMA 3 — fully offline on consumer hardware. ChromaDB: open-source embeddable vector database suited for RAG pipelines. Together they enable a fully local, privacy-preserving pipeline.",
-      x: 5.2, y: 3.3,
+      x: 5.2, y: 3.2,
     },
   ];
 
   cards.forEach((c) => {
-    s.addShape(pres.shapes.RECTANGLE, { x: c.x, y: c.y, w: 4.6, h: 2.05, fill: { color: C.cardBg }, line: { color: C.cardBorder, width: 1 }, shadow: makeShadow() });
-    s.addShape(pres.shapes.RECTANGLE, { x: c.x, y: c.y, w: 0.07, h: 2.05, fill: { color: C.teal }, line: { color: C.teal } });
+    s.addShape(pres.shapes.RECTANGLE, { x: c.x, y: c.y, w: 4.6, h: 2.15, fill: { color: C.cardBg }, line: { color: C.cardBorder, width: 1 }, shadow: makeShadow() });
+    s.addShape(pres.shapes.RECTANGLE, { x: c.x, y: c.y, w: 0.07, h: 2.15, fill: { color: C.teal }, line: { color: C.teal } });
     s.addText(c.title, { x: c.x + 0.15, y: c.y + 0.1, w: 4.35, h: 0.45, fontSize: 12, bold: true, color: C.darkText, fontFace: "Arial", margin: 0 });
-    s.addText(c.body, { x: c.x + 0.15, y: c.y + 0.62, w: 4.35, h: 1.25, fontSize: 10.5, color: C.mutedText, fontFace: "Calibri", margin: 0 });
+    s.addText(c.body, { x: c.x + 0.15, y: c.y + 0.62, w: 4.35, h: 1.38, fontSize: 10.5, color: C.mutedText, fontFace: "Calibri", margin: 0 });
   });
 }
 
@@ -115,7 +115,7 @@ function addHeader(slide: Slide, title: string) {
   s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y: 4.25, w: 9.2, h: 1.15, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 1 } });
   s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y: 4.25, w: 0.07, h: 1.15, fill: { color: C.teal }, line: { color: C.teal } });
   s.addText(
-    "There is no accessible, local tool that allows a user to upload a raw WhatsApp-style chat export, automatically extract a structured personality profile, store conversational memories, and simulate responses in the style of a chosen participant — all without sending data to the cloud.",
+    "There is no accessible, local tool that allows a user to upload a raw WhatsApp-style chat export, automatically extract a structured personality profile, store conversational pairs, and simulate responses in the style of a chosen participant — all without sending data to the cloud.",
     { x: 0.55, y: 4.33, w: 8.9, h: 1.0, fontSize: 11.5, color: "262626", fontFace: "Calibri", italic: true, margin: 0 }
   );
 }
@@ -127,10 +127,10 @@ function addHeader(slide: Slide, title: string) {
 
   const objectives = [
     { num: "01", text: "Parse WhatsApp-format plain-text chat exports and extract per-author message sets." },
-    { num: "02", text: "Automatically derive a structured PersonalityProfile (tone, style, vocabulary, sentiment, etc.) using an LLM prompt via Ollama." },
-    { num: "03", text: "Embed all persona messages and store them in ChromaDB for semantic memory retrieval." },
-    { num: "04", text: "Simulate natural-language replies to new user messages, grounded in the extracted profile and top-K retrieved memories." },
-    { num: "05", text: "Provide an intuitive, browser-based UI that requires no command-line interaction beyond starting local services." },
+    { num: "02", text: "Automatically derive a structured PersonalityProfile (tone, style, vocabulary, sentiment) using an LLM prompt via Ollama." },
+    { num: "03", text: "Extract (context window → persona reply) pairs from the chat and embed the context side for semantic retrieval in ChromaDB." },
+    { num: "04", text: "Simulate replies grounded in few-shot examples from retrieved pairs, the personality profile, and the current conversation history." },
+    { num: "05", text: "Gate retrieval quality — exclude semantically distant pairs and fall back to general style guidance when no relevant context exists." },
     { num: "06", text: "Keep the entire pipeline offline and private — no cloud APIs, no telemetry." },
   ];
 
@@ -195,25 +195,20 @@ function addHeader(slide: Slide, title: string) {
 
   const components = [
     { label: "Next.js Web App", desc: "Clean UI for uploading exports, selecting personas, and simulating replies" },
-    { label: "Chat Parser", desc: "Decodes WhatsApp-format exports (date, time, author, content) and normalises timestamps to ISO format" },
-    { label: "Personality Extractor", desc: "Uses Ollama/LLaMA 3 to produce a structured JSON profile covering tone, style, phrases, sentiment, vocabulary, and relationship signals" },
-    { label: "Vector Memory Store", desc: "ChromaDB + nomic-embed-text embeds all persona messages for top-K semantic retrieval at chat time" },
-    { label: "Simulation Engine", desc: "Composes a persona-grounded prompt from profile + retrieved context, then calls Ollama to generate a reply" },
+    { label: "Chat Parser", desc: "Decodes WhatsApp-format exports and derives sliding-window (context → reply) pairs via a 4-message window for every persona message" },
+    { label: "Personality Extractor", desc: "Uses Ollama/LLaMA 3 to produce a structured JSON profile; samples evenly across full chat history for representative coverage" },
+    { label: "Vector Memory Store", desc: "ChromaDB ditto_pairs_v1 + nomic-embed-text embeds the context side of each pair — retrieval finds situations similar to the query" },
+    { label: "Simulation Engine", desc: "Injects retrieved pairs as few-shot examples into a strict system prompt + passes conversation history as chat turns via /api/chat" },
+    { label: "Relevance Gate", desc: "Excludes pairs with cosine distance ≥ 1.3 from the few-shot block; switches to style-only mode when no relevant context is found" },
   ];
 
   components.forEach((c, i) => {
-    const y = 1.45 + i * 0.63;
-    s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y, w: 9.2, h: 0.55, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 0.5 } });
-    s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y, w: 0.06, h: 0.55, fill: { color: C.teal }, line: { color: C.teal } });
-    s.addText(c.label, { x: 0.55, y: y + 0.08, w: 2.2, h: 0.35, fontSize: 11, bold: true, color: C.teal, fontFace: "Arial", margin: 0 });
-    s.addText(c.desc, { x: 2.8, y: y + 0.08, w: 6.7, h: 0.35, fontSize: 11, color: "262626", fontFace: "Calibri", margin: 0 });
+    const y = 1.42 + i * 0.55;
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y, w: 9.2, h: 0.47, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 0.5 } });
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y, w: 0.06, h: 0.47, fill: { color: C.teal }, line: { color: C.teal } });
+    s.addText(c.label, { x: 0.55, y: y + 0.07, w: 2.3, h: 0.3, fontSize: 10.5, bold: true, color: C.teal, fontFace: "Arial", margin: 0 });
+    s.addText(c.desc, { x: 2.9, y: y + 0.07, w: 6.6, h: 0.3, fontSize: 10.5, color: "262626", fontFace: "Calibri", margin: 0 });
   });
-
-  s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y: 4.65, w: 9.2, h: 0.75, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 0.5 } });
-  s.addText(
-    "Advantages: Fully local — no data leaves the machine  •  No fine-tuning required  •  Structured, inspectable JSON profiles  •  RAG-grounded replies  •  Extensible via environment variables",
-    { x: 0.55, y: 4.72, w: 8.9, h: 0.6, fontSize: 11, color: "262626", fontFace: "Calibri", italic: true, margin: 0 }
-  );
 }
 
 // ===== SLIDE 7: MODULE 1 — CHAT PARSER =====
@@ -224,10 +219,10 @@ function addHeader(slide: Slide, title: string) {
   const features = [
     { label: "Input Format", desc: "Parses raw WhatsApp-exported .txt files line by line using regex: DD/MM/YY, H:MM [am/pm] - Author: Message" },
     { label: "Multi-line Messages", desc: "Handles multi-line messages — continuation lines are appended to the previous record automatically" },
-    { label: "Noise Filtering", desc: "Strips noise lines: <Media omitted>, encryption notices, and blank lines" },
+    { label: "Noise Filtering", desc: "Strips noise lines: <Media omitted>, bare URLs, encryption notices, and blank lines" },
     { label: "Timestamp Normalisation", desc: "Normalises all timestamps to YYYY-MM-DD HH:MM (24-hour ISO format)" },
-    { label: "Deduplication", desc: "Generates a SHA-1 ID per message for stable deduplication across re-uploads" },
-    { label: "Exported Functions", desc: "parseChatHistory  ·  getPersonaMessages  ·  getAverageWordsPerMessage" },
+    { label: "Conversation Pairs", desc: "getConversationPairs() — 4-message sliding window. For each persona reply collects preceding context. Skips replies < 4 chars or bare URLs." },
+    { label: "Exported Functions", desc: "parseChatHistory  ·  getPersonaMessages  ·  getConversationPairs  ·  getAverageWordsPerMessage" },
   ];
 
   features.forEach((f, i) => {
@@ -249,9 +244,9 @@ function addHeader(slide: Slide, title: string) {
   addHeader(s, "Module 2: Personality Extractor  ·  lib/personality.ts");
 
   const steps = [
-    { step: "01", label: "Message Sampling", desc: "Samples the first 80 messages of a persona to stay within the LLM context window limits." },
-    { step: "02", label: "Phrase Hints", desc: "Computes top-8 frequent words (≥3 chars, appearing >1 time) from sampled messages as phrase hints." },
-    { step: "03", label: "LLM Prompt", desc: "Sends a structured prompt to Ollama requesting a JSON object with 8 fields: tone, communicationStyle, responseLength, commonPhrases, sentiment, vocabularyPatterns, relationshipSignals, notes." },
+    { step: "01", label: "Message Sampling", desc: "Samples up to 100 messages evenly distributed across the full chat history (stepped by index) so both early and late conversational patterns are captured." },
+    { step: "02", label: "Phrase Hints", desc: "Computes top-8 frequent words (≥3 chars, appearing >1 time) from all persona messages as concrete phrase hints." },
+    { step: "03", label: "LLM Prompt", desc: "Sends a structured prompt to Ollama with the persona's actual raw messages as evidence and a timestamped transcript. Instructs the LLM to describe observed behaviour, not generic categories. Returns JSON with 8 fields." },
     { step: "04", label: "JSON Extraction", desc: "Extracts the JSON block from the raw LLM response using brace-matching to handle any surrounding prose or commentary." },
     { step: "05", label: "Fallback", desc: "Falls back gracefully to a default profile if JSON extraction fails, ensuring the pipeline never crashes." },
   ];
@@ -278,50 +273,52 @@ function addHeader(slide: Slide, title: string) {
     {
       name: "generateWithOllama(prompt)",
       endpoint: "POST /api/generate",
-      detail: "Calls Ollama with LLaMA 3 at temperature 0.7. Returns the raw generated text string.",
+      detail: "Calls Ollama with LLaMA 3 at temperature 0.7. Used only for personality profile extraction.",
+    },
+    {
+      name: "chatWithOllama(system, history[], userMessage)",
+      endpoint: "POST /api/chat",
+      detail: "Sends system role + prior conversation history + current user message as structured chat turns. Temperature 0.85. Used for all persona simulation — enables multi-turn coherence.",
     },
     {
       name: "embedWithOllama(texts[])",
       endpoint: "POST /api/embed",
-      detail: "Embeds an array of strings using nomic-embed-text. Supports both embeddings[] and legacy embedding response shapes for compatibility.",
+      detail: "Embeds an array of strings using nomic-embed-text. Supports both embeddings[] (current) and legacy embedding response shapes for compatibility.",
     },
   ];
 
   funcs.forEach((f, i) => {
-    const y = 1.45 + i * 1.45;
-    s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y, w: 9.2, h: 1.25, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 1 } });
-    s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y, w: 0.07, h: 1.25, fill: { color: C.teal }, line: { color: C.teal } });
-    s.addText(f.name, { x: 0.6, y: y + 0.1, w: 8.8, h: 0.35, fontSize: 13, bold: true, color: C.teal, fontFace: "Consolas", margin: 0 });
-    s.addText(f.endpoint, { x: 0.6, y: y + 0.5, w: 3.5, h: 0.28, fontSize: 10, color: "262626", fontFace: "Consolas", margin: 0 });
-    s.addText(f.detail, { x: 0.6, y: y + 0.82, w: 8.8, h: 0.35, fontSize: 11, color: "262626", fontFace: "Calibri", margin: 0 });
+    const y = 1.38 + i * 1.08;
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y, w: 9.2, h: 0.95, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 1 } });
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y, w: 0.07, h: 0.95, fill: { color: C.teal }, line: { color: C.teal } });
+    s.addText(f.name, { x: 0.6, y: y + 0.07, w: 8.8, h: 0.3, fontSize: 11.5, bold: true, color: C.teal, fontFace: "Consolas", margin: 0 });
+    s.addText(f.endpoint, { x: 0.6, y: y + 0.42, w: 3.5, h: 0.22, fontSize: 10, color: "262626", fontFace: "Consolas", margin: 0 });
+    s.addText(f.detail, { x: 0.6, y: y + 0.65, w: 8.8, h: 0.25, fontSize: 10.5, color: "262626", fontFace: "Calibri", margin: 0 });
   });
 
-  s.addText("Configuration via Environment Variables", {
-    x: 0.4, y: 4.45, w: 5, h: 0.3, fontSize: 12, bold: true, color: "737373", fontFace: "Arial", margin: 0,
-  });
   s.addText([
     { text: "OLLAMA_URL — Ollama server address (default: http://127.0.0.1:11434)", options: { bullet: true, breakLine: true } },
     { text: "OLLAMA_MODEL — Generation model name (default: llama3)", options: { bullet: true, breakLine: true } },
     { text: "OLLAMA_EMBED_MODEL — Embedding model name (default: nomic-embed-text)", options: { bullet: true } },
-  ], { x: 0.4, y: 4.8, w: 9.2, h: 0.72, fontSize: 10.5, color: "262626", fontFace: "Consolas" });
+  ], { x: 0.4, y: 4.7, w: 9.2, h: 0.72, fontSize: 10.5, color: "262626", fontFace: "Consolas" });
 }
 
 // ===== SLIDE 10: MODULE 4 — CHROMA MEMORY STORE =====
 {
   const s = pres.addSlide();
   addHeader(s, "Module 4: Chroma Memory Store  ·  lib/chroma.ts");
-  s.addText("Manages the ditto_memories_v2 ChromaDB collection", {
+  s.addText("Manages the ditto_pairs_v1 ChromaDB collection — stores (context window → persona reply) pairs", {
     x: 0.4, y: 0.9, w: 9.2, h: 0.35, fontSize: 12, color: "737373", fontFace: "Calibri", margin: 0,
   });
 
   const funcs = [
     {
-      name: "storePersonaMemories(messages, personaName)",
-      desc: "Upserts all persona messages as embeddings into the collection. Stores author, timestamp, and personaName as metadata. Each vector ID is keyed as personaName:sha1_of_message for stable deduplication.",
+      name: "storeConversationPairs(personaName, pairs[])",
+      desc: "Embeds the contextWindow text of each pair via Ollama, then upserts with personaReply as the document. IDs are SHA-1 of personaName:contextWindow:reply. In-memory dedup runs before upsert to prevent batch collisions.",
     },
     {
-      name: "queryPersonaMemories(message, personaName, k)",
-      desc: "Embeds the incoming user message, queries ChromaDB with a where filter on personaName, and returns the top-K results with distance scores. Used to build the retrieved context for the simulation prompt.",
+      name: "queryConversationPairs(personaName, queryText, limit=6)",
+      desc: "Embeds the incoming user message, queries ChromaDB with a personaName $eq filter, and returns ConversationPair[] sorted by cosine distance. Used to find the most situationally similar past exchanges.",
     },
   ];
 
@@ -334,7 +331,7 @@ function addHeader(slide: Slide, title: string) {
   });
 
   s.addShape(pres.shapes.RECTANGLE, { x: 0.4, y: 4.95, w: 9.2, h: 0.5, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 0.5 } });
-  s.addText("Collection: ditto_memories_v2  ·  Embedding: nomic-embed-text  ·  Config: CHROMA_URL env var", {
+  s.addText("Collection: ditto_pairs_v1  ·  Embedding: nomic-embed-text (context side)  ·  Config: CHROMA_URL env var", {
     x: 0.55, y: 5.0, w: 9.0, h: 0.4, fontSize: 10.5, color: "262626", fontFace: "Consolas", margin: 0,
   });
 }
@@ -345,30 +342,30 @@ function addHeader(slide: Slide, title: string) {
   addHeader(s, "Module 5: API Routes  ·  app/api/personas/");
 
   // POST /api/personas
-  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.9, w: 9.4, h: 2.15, fill: { color: C.cardBg }, line: { color: C.cardBorder }, shadow: makeShadow() });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.9, w: 9.4, h: 2.2, fill: { color: C.cardBg }, line: { color: C.cardBorder }, shadow: makeShadow() });
   s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.9, w: 9.4, h: 0.36, fill: { color: C.blue }, line: { color: C.blue } });
   s.addText("POST /api/personas  —  Create Persona", {
     x: 0.5, y: 0.9, w: 9.0, h: 0.36, fontSize: 13, bold: true, color: C.white, fontFace: "Consolas", valign: "middle", margin: 0,
   });
   s.addText([
     { text: "Validates request body (personaName, chatHistory)", options: { bullet: { type: "number" }, breakLine: true } },
-    { text: "Parses chat, filters to persona messages, computes summary stats", options: { bullet: { type: "number" }, breakLine: true } },
-    { text: "Calls personality extractor and memory store in sequence", options: { bullet: { type: "number" }, breakLine: true } },
-    { text: "Returns CreatePersonaResponse with full persona record and stored memory count", options: { bullet: { type: "number" } } },
+    { text: "Parses full chat into ChatMessage[], confirms persona has messages, computes PersonaSummary stats", options: { bullet: { type: "number" }, breakLine: true } },
+    { text: "Calls getConversationPairs() to extract all (context → reply) pairs from the full thread", options: { bullet: { type: "number" }, breakLine: true } },
+    { text: "Calls buildPersonalityProfile (Ollama) + storeConversationPairs (Chroma) in sequence; returns CreatePersonaResponse", options: { bullet: { type: "number" } } },
   ], { x: 0.5, y: 1.32, w: 9.0, h: 1.65, fontSize: 11, fontFace: "Calibri", color: C.darkText });
 
   // POST /api/personas/chat
-  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 3.2, w: 9.4, h: 2.2, fill: { color: C.cardBg }, line: { color: C.cardBorder }, shadow: makeShadow() });
-  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 3.2, w: 9.4, h: 0.36, fill: { color: C.teal }, line: { color: C.teal } });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 3.25, w: 9.4, h: 2.2, fill: { color: C.cardBg }, line: { color: C.cardBorder }, shadow: makeShadow() });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 3.25, w: 9.4, h: 0.36, fill: { color: C.teal }, line: { color: C.teal } });
   s.addText("POST /api/personas/chat  —  Chat Simulation", {
-    x: 0.5, y: 3.2, w: 9.0, h: 0.36, fontSize: 13, bold: true, color: C.white, fontFace: "Consolas", valign: "middle", margin: 0,
+    x: 0.5, y: 3.25, w: 9.0, h: 0.36, fontSize: 13, bold: true, color: C.white, fontFace: "Consolas", valign: "middle", margin: 0,
   });
   s.addText([
-    { text: "Validates request body (personaName, message, profile)", options: { bullet: { type: "number" }, breakLine: true } },
-    { text: "Retrieves top-5 semantic memories from ChromaDB", options: { bullet: { type: "number" }, breakLine: true } },
-    { text: "Builds a simulation prompt combining the personality profile and retrieved context", options: { bullet: { type: "number" }, breakLine: true } },
-    { text: "Calls Ollama for generation and returns the reply with retrieved memories", options: { bullet: { type: "number" } } },
-  ], { x: 0.5, y: 3.62, w: 9.0, h: 1.65, fontSize: 11, fontFace: "Calibri", color: C.darkText });
+    { text: "Validates personaName, message, profile; accepts conversationHistory (last 6 turns)", options: { bullet: { type: "number" }, breakLine: true } },
+    { text: "Queries top-6 nearest pairs from ChromaDB by embedding user message against context-side vectors", options: { bullet: { type: "number" }, breakLine: true } },
+    { text: "Relevance gate: pairs with distance ≥ 1.3 excluded from few-shot prompt (shown in UI as 'distant')", options: { bullet: { type: "number" }, breakLine: true } },
+    { text: "Calls chatWithOllama(systemPrompt, history, message) — returns reply + all retrieved pairs", options: { bullet: { type: "number" } } },
+  ], { x: 0.5, y: 3.67, w: 9.0, h: 1.65, fontSize: 11, fontFace: "Calibri", color: C.darkText });
 }
 
 // ===== SLIDE 12: MODULE 6 — UI =====
@@ -381,12 +378,12 @@ function addHeader(slide: Slide, title: string) {
   });
 
   const sections = [
-    { num: "1", title: "Hero Card", desc: "Project overview and feature highlights", color: C.teal },
-    { num: "2", title: "System Status Card", desc: "Live display of stack components: Next.js, Ollama, Chroma", color: C.blue },
-    { num: "3", title: "Create Persona Panel", desc: "File upload, format validation, speaker detection radio group, chat preview, and persona creation trigger", color: C.midBlue },
-    { num: "4", title: "Chat Simulation Panel", desc: "Message input, simulate button, and a chat-bubble conversation thread", color: C.teal },
+    { num: "1", title: "Hero Card", desc: "Project overview and feature rows (icon + title + description, no grid)", color: C.teal },
+    { num: "2", title: "System Status Card", desc: "Live display of stack: Next.js App Router, Ollama llama3, Chroma ditto_pairs_v1, nomic-embed-text", color: C.blue },
+    { num: "3", title: "Create Persona Panel", desc: "File upload, format validation, speaker detection radio group, chat preview, persona creation trigger", color: C.midBlue },
+    { num: "4", title: "Chat Simulation Panel", desc: "Scrollable monospace conversation log, message textarea, simulate button — last 6 turns sent as conversationHistory", color: C.teal },
     { num: "5", title: "Extracted Profile Panel", desc: "Summary stats and raw JSON profile viewer", color: C.blue },
-    { num: "6", title: "Retrieved Context Panel", desc: "Per-memory cards with author, timestamp, and distance badges", color: C.midBlue },
+    { num: "6", title: "Retrieved Context Panel", desc: "Per-pair cards: context window (monospace), persona reply (left-border highlight), timestamp + colour-coded distance badge", color: C.midBlue },
   ];
 
   sections.forEach((sec, i) => {
@@ -414,8 +411,8 @@ function addHeader(slide: Slide, title: string) {
       { text: "Technology", options: { bold: true, color: C.white, fill: { color: C.blue }, fontSize: 10, fontFace: "Arial" } },
       { text: "Version / Notes", options: { bold: true, color: C.white, fill: { color: C.blue }, fontSize: 10, fontFace: "Arial" } },
     ],
-    ["Frontend framework", "Next.js (App Router)", "v14+"],
-    ["UI language", "TypeScript + React", "React 18+"],
+    ["Frontend framework", "Next.js (App Router)", "v16+"],
+    ["UI language", "TypeScript + React", "React 19+"],
     ["Component library", "shadcn/ui (Radix + Tailwind)", "Latest"],
     ["Local LLM runtime", "Ollama", "Latest stable"],
     ["LLM model", "LLaMA 3 (llama3)", "Meta via Ollama"],
@@ -423,7 +420,7 @@ function addHeader(slide: Slide, title: string) {
     ["Vector database", "ChromaDB", "v0.5+ (REST API)"],
     ["ChromaDB client", "chromadb npm package", "Latest"],
     ["Node.js", "Node.js", "v18+"],
-    ["Package manager", "npm / pnpm", "—"],
+    ["Package manager", "bun", "—"],
   ];
 
   s.addTable(swRows, {
@@ -500,22 +497,23 @@ function addHeader(slide: Slide, title: string) {
   const steps = [
     { label: "User", action: "Uploads .txt chat export file via browser UI" },
     { label: "Chat Parser", action: "Regex parse each line → ChatMessage[]  ·  Filter noise, normalise timestamps  ·  Filter by selected personaName" },
-    { label: "Personality Extractor", action: "Sample first 80 messages  ·  Compute top-8 frequent words  ·  Build LLM prompt" },
-    { label: "Ollama — LLaMA 3", action: "Generate structured JSON PersonalityProfile  ·  Extract JSON block via brace-matching  ·  Validate & fill fallback fields" },
-    { label: "nomic-embed-text", action: "Embed all persona messages → float[][] vectors (768 dimensions per message)" },
-    { label: "ChromaDB", action: "Upsert vectors with metadata: author, timestamp, personaName into ditto_memories_v2 collection" },
-    { label: "API → UI", action: "Return PersonaRecord + storedMemories count  ·  Display profile JSON + summary stats in browser" },
+    { label: "Pair Extractor", action: "getConversationPairs() — 4-message sliding window over full thread → { contextWindow, personaReply, timestamp }[]" },
+    { label: "Personality Extractor", action: "Evenly sample up to 100 messages across full history  ·  Build LLM prompt with raw message evidence" },
+    { label: "Ollama — LLaMA 3", action: "POST /api/generate → structured JSON PersonalityProfile  ·  Extract via brace-matching  ·  Validate & fill fallback fields" },
+    { label: "nomic-embed-text", action: "Embed contextWindow side of each pair → float[][] vectors (768 dimensions per context window)" },
+    { label: "ChromaDB — ditto_pairs_v1", action: "Upsert pairs: embedding on context, document = personaReply, metadata: personaName + contextWindow + timestamp" },
+    { label: "API → UI", action: "Return PersonaRecord + storedPairs count  ·  Display profile JSON + summary stats in browser" },
   ];
 
-  const stepH = 0.65;
-  const shapeH = 0.57;
+  const stepH = 0.58;
+  const shapeH = 0.5;
   steps.forEach((step, i) => {
-    const y = 0.85 + i * stepH;
+    const y = 0.82 + i * stepH;
     const isEven = i % 2 === 0;
     s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 9.4, h: shapeH, fill: { color: isEven ? "F5F5F5" : "E5E5E5" }, line: { color: isEven ? C.blue : C.teal, width: 0.5 } });
-    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 1.8, h: shapeH, fill: { color: isEven ? C.blue : C.teal }, line: { color: isEven ? C.blue : C.teal } });
-    s.addText(step.label, { x: 0.3, y, w: 1.8, h: shapeH, fontSize: 10, bold: true, color: C.white, fontFace: "Arial", align: "center", valign: "middle", margin: 0 });
-    s.addText(step.action, { x: 2.2, y: y + 0.08, w: 7.4, h: 0.4, fontSize: 10, color: "262626", fontFace: "Calibri", margin: 0 });
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 1.7, h: shapeH, fill: { color: isEven ? C.blue : C.teal }, line: { color: isEven ? C.blue : C.teal } });
+    s.addText(step.label, { x: 0.3, y, w: 1.7, h: shapeH, fontSize: 9.5, bold: true, color: C.white, fontFace: "Arial", align: "center", valign: "middle", margin: 0 });
+    s.addText(step.action, { x: 2.1, y: y + 0.07, w: 7.5, h: 0.35, fontSize: 9.5, color: "262626", fontFace: "Calibri", margin: 0 });
   });
 }
 
@@ -525,24 +523,25 @@ function addHeader(slide: Slide, title: string) {
   addHeader(s, "Data Flow: Chat Simulation");
 
   const steps = [
-    { label: "User", action: "Types a message in the Chat Simulation panel" },
-    { label: "POST /chat", action: "Receive: personaName, message, profile  ·  Validate request body" },
+    { label: "User", action: "Types a message in the Chat Simulation panel (Enter to send)" },
+    { label: "POST /chat", action: "Receive: personaName, message, profile, conversationHistory (last 6 turns)  ·  Validate request body" },
     { label: "nomic-embed-text", action: "Embed user message → query vector (768 dimensions)" },
-    { label: "ChromaDB Query", action: "Filter by personaName  ·  Return top-5 nearest memories: id, content, author, timestamp, distance" },
-    { label: "Prompt Builder", action: "Compose: \"You are <name>. Personality: <profile JSON>. Past context: <memories>. User: <message>\"" },
-    { label: "Ollama — LLaMA 3", action: "Generate reply at temperature 0.7 grounded in the persona profile and retrieved context" },
-    { label: "API → UI", action: "Display reply chat bubble  ·  Display retrieved memory cards with cosine distance scores" },
+    { label: "ChromaDB Query", action: "Filter by personaName  ·  Return top-6 nearest pairs (contextWindow, personaReply, distance)" },
+    { label: "Relevance Gate", action: "distance < 1.3 → usable few-shot example  ·  distance ≥ 1.3 → excluded from prompt, shown as 'distant' in UI" },
+    { label: "Prompt Builder", action: "System: role declaration + style summary + few-shot [Context]/[reply] examples (usable pairs only)" },
+    { label: "Ollama — LLaMA 3", action: "POST /api/chat with [system, ...conversationHistory, user]  ·  temperature 0.85  ·  returns reply" },
+    { label: "API → UI", action: "Display reply in monospace chat log  ·  Display pair cards with colour-coded distance badges" },
   ];
 
-  const stepH = 0.65;
-  const shapeH = 0.57;
+  const stepH = 0.58;
+  const shapeH = 0.5;
   steps.forEach((step, i) => {
-    const y = 0.85 + i * stepH;
+    const y = 0.82 + i * stepH;
     const isEven = i % 2 === 0;
     s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 9.4, h: shapeH, fill: { color: isEven ? "F5F5F5" : "E5E5E5" }, line: { color: isEven ? C.blue : C.teal, width: 0.5 } });
-    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 1.8, h: shapeH, fill: { color: isEven ? C.blue : C.teal }, line: { color: isEven ? C.blue : C.teal } });
-    s.addText(step.label, { x: 0.3, y, w: 1.8, h: shapeH, fontSize: 10, bold: true, color: C.white, fontFace: "Arial", align: "center", valign: "middle", margin: 0 });
-    s.addText(step.action, { x: 2.2, y: y + 0.08, w: 7.4, h: 0.4, fontSize: 10, color: "262626", fontFace: "Calibri", margin: 0 });
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 1.7, h: shapeH, fill: { color: isEven ? C.blue : C.teal }, line: { color: isEven ? C.blue : C.teal } });
+    s.addText(step.label, { x: 0.3, y, w: 1.7, h: shapeH, fontSize: 9.5, bold: true, color: C.white, fontFace: "Arial", align: "center", valign: "middle", margin: 0 });
+    s.addText(step.action, { x: 2.1, y: y + 0.07, w: 7.5, h: 0.35, fontSize: 9.5, color: "262626", fontFace: "Calibri", margin: 0 });
   });
 }
 
@@ -552,7 +551,7 @@ function addHeader(slide: Slide, title: string) {
   addHeader(s, "Architecture Flowchart");
 
   s.addText(
-    "High-level module view of the DITTO pipeline across the frontend, API routes, parsing, profile extraction, embeddings, vector memory, and reply generation.",
+    "High-level module view of the DITTO pipeline across the frontend, API routes, parsing, pair extraction, profile extraction, embeddings, vector memory, and reply generation.",
     { x: 0.4, y: 0.88, w: 9.2, h: 0.35, fontSize: 11.5, color: "737373", fontFace: "Calibri", margin: 0 }
   );
 
@@ -569,7 +568,7 @@ function addHeader(slide: Slide, title: string) {
     y: 1.32,
     w: 3.26,
     h: 3.76,
-  })
+  });
 
   s.addText(
     "Flowchart source: docs/PROJECT_FLOWCHART.mmd",
@@ -580,10 +579,10 @@ function addHeader(slide: Slide, title: string) {
 // ===== SLIDE 17: TABLE DESIGN — CHROMADB COLLECTION =====
 {
   const s = pres.addSlide();
-  addHeader(s, "Table Design: ChromaDB Collection  ·  ditto_memories_v2");
+  addHeader(s, "Table Design: ChromaDB Collection  ·  ditto_pairs_v1");
 
   s.addText(
-    "DITTO uses ChromaDB (a vector database) rather than a relational database. Data is stored in a collection rather than SQL tables. The logical schema is described below:",
+    "DITTO uses ChromaDB (a vector database) rather than a relational database. Data is stored as conversation pairs — embedding on the context side, reply as the document.",
     { x: 0.3, y: 0.85, w: 9.4, h: 0.42, fontSize: 11, color: C.mutedText, fontFace: "Calibri", margin: 0 }
   );
 
@@ -593,12 +592,12 @@ function addHeader(slide: Slide, title: string) {
       { text: "Type", options: { bold: true, color: C.white, fill: { color: C.blue }, fontSize: 11, fontFace: "Arial" } },
       { text: "Description", options: { bold: true, color: C.white, fill: { color: C.blue }, fontSize: 11, fontFace: "Arial" } },
     ],
-    ["id", "string", "Unique record key: {personaName}:{sha1_of_raw_line}"],
-    ["embedding", "float[]", "nomic-embed-text vector (768 dimensions)"],
-    ["document", "string", "Raw message content text"],
-    ["metadata.personaName", "string", "The persona this memory belongs to"],
-    ["metadata.author", "string", "Original chat author name"],
-    ["metadata.timestamp", "string", "Normalised ISO-style timestamp (YYYY-MM-DD HH:MM)"],
+    ["id", "string", "SHA-1 of personaName:contextWindow:personaReply — stable dedup key"],
+    ["embedding", "float[]", "nomic-embed-text vector of the context window (768 dimensions)"],
+    ["document", "string", "The persona's reply text"],
+    ["metadata.personaName", "string", "The persona this pair belongs to"],
+    ["metadata.contextWindow", "string", "The multi-turn context that preceded the reply"],
+    ["metadata.timestamp", "string", "Normalised ISO-style timestamp of the reply (YYYY-MM-DD HH:MM)"],
   ];
 
   s.addTable(chromaRows, {
@@ -613,7 +612,7 @@ function addHeader(slide: Slide, title: string) {
   s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 4.4, w: 9.4, h: 0.9, fill: { color: C.darkCallout }, line: { color: C.blue, width: 0.5 } });
   s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 4.4, w: 0.07, h: 0.9, fill: { color: C.blue }, line: { color: C.blue } });
   s.addText(
-    "Note: Vector IDs use the format personaName:sha1 to support multi-persona collections in a single ChromaDB instance. Metadata filtering via where clause restricts queries to the selected persona only.",
+    "Key insight: embedding the context side means ChromaDB retrieval answers \"what situation is most similar to the user's message?\" rather than \"what did the persona say that sounds similar?\" — a more useful signal for persona simulation.",
     { x: 0.45, y: 4.45, w: 9.1, h: 0.8, fontSize: 10.5, color: "262626", fontFace: "Calibri", margin: 0 }
   );
 }
@@ -671,7 +670,7 @@ function addHeader(slide: Slide, title: string) {
   });
 }
 
-// ===== SLIDE 19: TYPESCRIPT TYPES — PersonaSummary, RetrievedMemory, API Responses =====
+// ===== SLIDE 19: TYPESCRIPT TYPES — ConversationPair & API Responses =====
 {
   const s = pres.addSlide();
   addHeader(s, "TypeScript Data Structures — API Types");
@@ -690,19 +689,18 @@ function addHeader(slide: Slide, title: string) {
     ["sourceAuthors", "string[]", "All unique authors in the full chat"],
   ], { x: 0.3, y: 1.2, w: 4.55, h: 1.5, colW: [1.5, 0.9, 2.15], border: { pt: 0.5, color: C.tableBorder }, fill: { color: C.cardBg }, fontSize: 9.5, fontFace: "Calibri", color: C.darkText, rowH: 0.28 });
 
-  s.addText("RetrievedMemory", { x: 0.3, y: 2.82, w: 4.5, h: 0.3, fontSize: 12, bold: true, color: C.darkText, fontFace: "Arial", margin: 0 });
+  s.addText("ConversationPair", { x: 0.3, y: 2.82, w: 4.5, h: 0.3, fontSize: 12, bold: true, color: C.darkText, fontFace: "Arial", margin: 0 });
   s.addTable([
     [
       { text: "Field", options: { bold: true, color: C.white, fill: { color: C.midBlue }, fontSize: 9.5 } },
       { text: "Type", options: { bold: true, color: C.white, fill: { color: C.midBlue }, fontSize: 9.5 } },
       { text: "Description", options: { bold: true, color: C.white, fill: { color: C.midBlue }, fontSize: 9.5 } },
     ],
-    ["id", "string", "ChromaDB document ID"],
-    ["author", "string", "Original message author"],
-    ["content", "string", "Message text"],
-    ["timestamp", "string", "Message timestamp"],
+    ["contextWindow", "string", "Multi-turn messages that preceded the reply"],
+    ["personaReply", "string", "What the persona actually said"],
+    ["timestamp", "string", "Timestamp of the reply"],
     ["distance", "number | null", "Cosine distance from query vector (lower = more similar)"],
-  ], { x: 0.3, y: 3.17, w: 4.55, h: 1.83, colW: [1.3, 1.15, 2.1], border: { pt: 0.5, color: C.tableBorder }, fill: { color: C.cardBg }, fontSize: 9.5, fontFace: "Calibri", color: C.darkText, rowH: 0.33 });
+  ], { x: 0.3, y: 3.17, w: 4.55, h: 1.52, colW: [1.3, 1.15, 2.1], border: { pt: 0.5, color: C.tableBorder }, fill: { color: C.cardBg }, fontSize: 9.5, fontFace: "Calibri", color: C.darkText, rowH: 0.3 });
 
   // Right column
   s.addText("CreatePersonaResponse", { x: 5.1, y: 0.85, w: 4.5, h: 0.3, fontSize: 12, bold: true, color: C.darkText, fontFace: "Arial", margin: 0 });
@@ -715,7 +713,7 @@ function addHeader(slide: Slide, title: string) {
     ["persona.summary", "PersonaSummary", "Aggregate statistics"],
     ["persona.profile", "PersonalityProfile", "Extracted JSON profile"],
     ["persona.sampleMessages", "ChatMessage[]", "First 6 persona messages (preview)"],
-    ["storedMemories", "number", "Count of vectors upserted to ChromaDB"],
+    ["storedMemories", "number", "Count of pairs upserted to ChromaDB"],
   ], { x: 5.1, y: 1.2, w: 4.55, h: 1.5, colW: [1.6, 1.5, 1.45], border: { pt: 0.5, color: C.tableBorder }, fill: { color: C.cardBg }, fontSize: 9.5, fontFace: "Calibri", color: C.darkText, rowH: 0.28 });
 
   s.addText("ChatSimulationResponse", { x: 5.1, y: 2.97, w: 4.5, h: 0.3, fontSize: 12, bold: true, color: C.darkText, fontFace: "Arial", margin: 0 });
@@ -726,7 +724,7 @@ function addHeader(slide: Slide, title: string) {
       { text: "Description", options: { bold: true, color: C.white, fill: { color: C.blue }, fontSize: 9.5 } },
     ],
     ["reply", "string", "LLM-generated persona reply"],
-    ["retrievedContext", "RetrievedMemory[]", "Top-K memories used to ground the reply"],
+    ["retrievedContext", "ConversationPair[]", "Top-K pairs used to ground the reply"],
   ], { x: 5.1, y: 3.32, w: 4.55, h: 0.9, colW: [1.5, 1.6, 1.45], border: { pt: 0.5, color: C.tableBorder }, fill: { color: C.cardBg }, fontSize: 9.5, fontFace: "Calibri", color: C.darkText, rowH: 0.28 });
 }
 
@@ -738,17 +736,17 @@ function addHeader(slide: Slide, title: string) {
   const cards = [
     {
       title: "Frontend Stack",
-      body: "Next.js 16.1.7 (App Router) + React 19.2.4 + TypeScript throughout. Dev server runs with Turbopack (next dev --turbopack) for fast incremental builds.",
+      body: "Next.js 16 (App Router) + React 19 + TypeScript throughout. Dev server runs with Turbopack (bun run dev) for fast incremental builds.",
       x: 0.3, y: 0.95,
     },
     {
       title: "Local AI Services",
-      body: "Ollama — serves llama3 (generation) and nomic-embed-text (embedding) at http://127.0.0.1:11434. ChromaDB — vector REST server at http://127.0.0.1:8000, storing data in the chroma/ directory.",
+      body: "Ollama — serves llama3 (generation) and nomic-embed-text (embedding) at http://127.0.0.1:11434. ChromaDB — vector REST server at http://127.0.0.1:8000, persisting data in chroma/.",
       x: 5.2, y: 0.95,
     },
     {
       title: "Build Configuration",
-      body: "chromadb declared as serverExternalPackage in next.config.mjs to prevent client-side bundling. All service URLs configurable via environment variables with local defaults.",
+      body: "chromadb declared as serverExternalPackage in next.config.mjs to prevent client-side bundling. All service URLs configurable via environment variables with local defaults. Package manager: bun.",
       x: 0.3, y: 3.3,
     },
     {
@@ -784,17 +782,17 @@ function addHeader(slide: Slide, title: string) {
     {
       step: "02", color: C.blue,
       label: "Noise Filtering",
-      desc: "Discards blank lines, <Media omitted> entries, and WhatsApp system notices (end-to-end encryption banners, group change notices).",
+      desc: "Discards blank lines, <Media omitted>, bare URLs, and WhatsApp system notices (end-to-end encryption banners, group change notices).",
     },
     {
       step: "03", color: C.midBlue,
       label: "Stable ID Generation",
-      desc: "Applies SHA-1 to each raw line to produce a deterministic message ID — used as the ChromaDB upsert key so re-uploads never create duplicate vectors.",
+      desc: "Applies SHA-1 to each raw line to produce a deterministic message ID — used as part of the ChromaDB pair ID so re-uploads never create duplicate vectors.",
     },
     {
       step: "04", color: C.teal,
-      label: "Helper Exports",
-      desc: "getPersonaMessages — case-insensitive author filter.  getAverageWordsPerMessage — mean word count rounded to 1 decimal place.",
+      label: "getConversationPairs",
+      desc: "4-message sliding window over the full thread. For each persona reply, collects the preceding context from any participant. Skips replies < 4 chars or bare URLs.",
     },
   ];
 
@@ -823,19 +821,19 @@ function addHeader(slide: Slide, title: string) {
   );
 
   // Stage 2
-  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 2.6, w: 9.4, h: 1.55, fill: { color: "F5F5F5" }, line: { color: C.blue, width: 1 } });
-  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 2.6, w: 0.07, h: 1.55, fill: { color: C.blue }, line: { color: C.blue } });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 2.6, w: 9.4, h: 1.7, fill: { color: "F5F5F5" }, line: { color: C.blue, width: 1 } });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 2.6, w: 0.07, h: 1.7, fill: { color: C.blue }, line: { color: C.blue } });
   s.addText("Stage 2 — LLM-based Extraction", { x: 0.48, y: 2.67, w: 9.0, h: 0.35, fontSize: 13, bold: true, color: "404040", fontFace: "Arial", margin: 0 });
   s.addText(
-    "First 80 messages are formatted into a structured prompt instructing Ollama/LLaMA 3 to return a strict JSON object with 8 fields: tone, communicationStyle, responseLength, commonPhrases, sentiment, vocabularyPatterns, relationshipSignals, notes. The raw output is parsed by a brace-matching extractor that isolates the JSON block even when the model wraps it in prose.",
-    { x: 0.48, y: 3.08, w: 9.0, h: 1.0, fontSize: 11, color: "262626", fontFace: "Calibri", margin: 0 }
+    "Samples up to 100 messages evenly distributed across the full chat history (stepped by index) — early and late patterns are both captured. The prompt provides two evidence sources: a list of raw messages as JSON-quoted strings and a short timestamped transcript. The LLM is instructed to describe observed behaviour from evidence rather than producing generic category labels.",
+    { x: 0.48, y: 3.08, w: 9.0, h: 1.15, fontSize: 11, color: "262626", fontFace: "Calibri", margin: 0 }
   );
 
   // Fallback callout
-  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 4.3, w: 9.4, h: 0.95, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 0.5 } });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 4.45, w: 9.4, h: 0.8, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 0.5 } });
   s.addText(
     "Fallback: If JSON extraction fails, a default profile pre-populated with the phrase hints is returned — the pipeline never crashes due to a malformed LLM response.",
-    { x: 0.48, y: 4.38, w: 9.1, h: 0.8, fontSize: 11, color: "262626", fontFace: "Calibri", italic: true, margin: 0 }
+    { x: 0.48, y: 4.52, w: 9.1, h: 0.65, fontSize: 11, color: "262626", fontFace: "Calibri", italic: true, margin: 0 }
   );
 }
 
@@ -849,31 +847,32 @@ function addHeader(slide: Slide, title: string) {
   });
 
   const ollamaFuncs = [
-    { name: "generateWithOllama(prompt)", detail: "POST /api/generate  ·  stream: false  ·  temperature 0.7  ·  cache: no-store to prevent stale outputs" },
+    { name: "generateWithOllama(prompt)", detail: "POST /api/generate  ·  stream: false  ·  temperature 0.7  ·  used for personality profile extraction only" },
+    { name: "chatWithOllama(system, history[], userMessage)", detail: "POST /api/chat  ·  messages: [system, ...history, user]  ·  temperature 0.85  ·  used for all persona simulation — enables multi-turn coherence" },
     { name: "embedWithOllama(texts[])", detail: "POST /api/embed  ·  Handles both embeddings[] (current) and embedding (legacy) response shapes for version compatibility" },
   ];
   ollamaFuncs.forEach((f, i) => {
-    const y = 1.27 + i * 0.95;
-    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 9.4, h: 0.82, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 0.5 } });
-    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 0.06, h: 0.82, fill: { color: C.teal }, line: { color: C.teal } });
-    s.addText(f.name, { x: 0.48, y: y + 0.07, w: 9.0, h: 0.3, fontSize: 11.5, bold: true, color: C.teal, fontFace: "Consolas", margin: 0 });
-    s.addText(f.detail, { x: 0.48, y: y + 0.45, w: 9.0, h: 0.3, fontSize: 10.5, color: "262626", fontFace: "Calibri", margin: 0 });
+    const y = 1.27 + i * 0.77;
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 9.4, h: 0.68, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 0.5 } });
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 0.06, h: 0.68, fill: { color: C.teal }, line: { color: C.teal } });
+    s.addText(f.name, { x: 0.48, y: y + 0.05, w: 9.0, h: 0.28, fontSize: 11, bold: true, color: C.teal, fontFace: "Consolas", margin: 0 });
+    s.addText(f.detail, { x: 0.48, y: y + 0.38, w: 9.0, h: 0.25, fontSize: 10.5, color: "262626", fontFace: "Calibri", margin: 0 });
   });
 
-  s.addText("lib/chroma.ts — Vector Memory Store", {
-    x: 0.3, y: 3.25, w: 5, h: 0.32, fontSize: 12, bold: true, color: "404040", fontFace: "Arial", margin: 0,
+  s.addText("lib/chroma.ts — Vector Memory Store (ditto_pairs_v1)", {
+    x: 0.3, y: 3.62, w: 7, h: 0.32, fontSize: 12, bold: true, color: "404040", fontFace: "Arial", margin: 0,
   });
 
   const chromaFuncs = [
-    { name: "storePersonaMemories", detail: "Embeds every persona message via Ollama, upserts with composite ID (personaName:sha1). Metadata: personaName, author, timestamp. Idempotent — re-running never creates duplicates." },
-    { name: "queryPersonaMemories", detail: "Embeds user message, queries Chroma with $eq filter on personaName, returns top-K results with cosine-distance scores surfaced in the UI." },
+    { name: "storeConversationPairs", detail: "Embeds contextWindow of each pair via Ollama, upserts with personaReply as document. SHA-1 ID of personaName:context:reply. In-memory dedup prevents batch collisions." },
+    { name: "queryConversationPairs", detail: "Embeds user message, queries Chroma with $eq filter on personaName, returns top-6 ConversationPair[] with cosine-distance scores surfaced in the UI." },
   ];
   chromaFuncs.forEach((f, i) => {
-    const y = 3.65 + i * 0.95;
-    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 9.4, h: 0.82, fill: { color: "F5F5F5" }, line: { color: C.blue, width: 0.5 } });
-    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 0.06, h: 0.82, fill: { color: C.blue }, line: { color: C.blue } });
-    s.addText(f.name, { x: 0.48, y: y + 0.07, w: 9.0, h: 0.3, fontSize: 11.5, bold: true, color: "404040", fontFace: "Consolas", margin: 0 });
-    s.addText(f.detail, { x: 0.48, y: y + 0.45, w: 9.0, h: 0.3, fontSize: 10.5, color: "262626", fontFace: "Calibri", margin: 0 });
+    const y = 4.0 + i * 0.77;
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 9.4, h: 0.68, fill: { color: "F5F5F5" }, line: { color: C.blue, width: 0.5 } });
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 0.06, h: 0.68, fill: { color: C.blue }, line: { color: C.blue } });
+    s.addText(f.name, { x: 0.48, y: y + 0.05, w: 9.0, h: 0.28, fontSize: 11, bold: true, color: "404040", fontFace: "Consolas", margin: 0 });
+    s.addText(f.detail, { x: 0.48, y: y + 0.38, w: 9.0, h: 0.25, fontSize: 10.5, color: "262626", fontFace: "Calibri", margin: 0 });
   });
 }
 
@@ -883,7 +882,7 @@ function addHeader(slide: Slide, title: string) {
   addHeader(s, "Implementation: API Route Logic  ·  app/api/personas/");
 
   // POST /api/personas
-  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.88, w: 9.4, h: 1.8, fill: { color: C.cardBg }, line: { color: C.cardBorder }, shadow: makeShadow() });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.88, w: 9.4, h: 1.9, fill: { color: C.cardBg }, line: { color: C.cardBorder }, shadow: makeShadow() });
   s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.88, w: 9.4, h: 0.38, fill: { color: C.blue }, line: { color: C.blue } });
   s.addText("POST /api/personas  —  Persona Creation Pipeline", {
     x: 0.48, y: 0.88, w: 9.0, h: 0.38, fontSize: 13, bold: true, color: C.white, fontFace: "Consolas", valign: "middle", margin: 0,
@@ -891,27 +890,22 @@ function addHeader(slide: Slide, title: string) {
   s.addText([
     { text: "Validate personaName + chatHistory; return 400 if missing or persona not found in chat", options: { bullet: { type: "number" }, breakLine: true } },
     { text: "Compute PersonaSummary: total messages, average word count, all unique authors", options: { bullet: { type: "number" }, breakLine: true } },
-    { text: "Call buildPersonalityProfile (Ollama LLaMA 3) → structured JSON PersonalityProfile", options: { bullet: { type: "number" }, breakLine: true } },
-    { text: "Call storePersonaMemories (Chroma) → upsert all vectors; return stored count", options: { bullet: { type: "number" } } },
-  ], { x: 0.48, y: 1.55, w: 9.0, h: 0.84, fontSize: 11, fontFace: "Calibri", color: C.darkText });
+    { text: "Call getConversationPairs() → extract all (context → reply) pairs from full message thread", options: { bullet: { type: "number" }, breakLine: true } },
+    { text: "Call buildPersonalityProfile (Ollama) + storeConversationPairs (Chroma) → return CreatePersonaResponse", options: { bullet: { type: "number" } } },
+  ], { x: 0.48, y: 1.55, w: 9.0, h: 1.0, fontSize: 11, fontFace: "Calibri", color: C.darkText });
 
   // POST /api/personas/chat
-  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 3.01, w: 9.4, h: 1.8, fill: { color: C.cardBg }, line: { color: C.cardBorder }, shadow: makeShadow() });
-  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 3.01, w: 9.4, h: 0.38, fill: { color: C.teal }, line: { color: C.teal } });
-  s.addText("POST /api/personas/chat  —  RAG Simulation Loop", {
-    x: 0.48, y: 3.01, w: 9.0, h: 0.38, fontSize: 13, bold: true, color: C.white, fontFace: "Consolas", valign: "middle", margin: 0,
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 3.0, w: 9.4, h: 2.15, fill: { color: C.cardBg }, line: { color: C.cardBorder }, shadow: makeShadow() });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 3.0, w: 9.4, h: 0.38, fill: { color: C.teal }, line: { color: C.teal } });
+  s.addText("POST /api/personas/chat  —  Pair-based RAG Simulation", {
+    x: 0.48, y: 3.0, w: 9.0, h: 0.38, fontSize: 13, bold: true, color: C.white, fontFace: "Consolas", valign: "middle", margin: 0,
   });
   s.addText([
-    { text: "Validate personaName, message, profile; return 400 if any field missing", options: { bullet: { type: "number" }, breakLine: true } },
-    { text: "Embed user message → query Chroma for top-5 semantically nearest persona memories", options: { bullet: { type: "number" }, breakLine: true } },
-    { text: "Compose prompt: PersonalityProfile JSON + retrieved memories + user message", options: { bullet: { type: "number" }, breakLine: true } },
-    { text: "Call generateWithOllama → return reply + retrieved context with distance scores", options: { bullet: { type: "number" } } },
-  ], { x: 0.48, y: 3.68, w: 9.0, h: 0.84, fontSize: 11, fontFace: "Calibri", color: C.darkText });
-
-  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 5.1, w: 9.4, h: 0.35, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 0.5 } });
-  s.addText("Both routes include the relevant service URL in 500 error messages for easy local debugging.", {
-    x: 0.48, y: 5.15, w: 9.0, h: 0.25, fontSize: 10, color: "262626", fontFace: "Calibri", italic: true, margin: 0,
-  });
+    { text: "Validate personaName, message, profile; accept conversationHistory (last 6 turns)", options: { bullet: { type: "number" }, breakLine: true } },
+    { text: "Query top-6 pairs from Chroma by embedding user message against context-side vectors", options: { bullet: { type: "number" }, breakLine: true } },
+    { text: "Relevance gate: exclude pairs with cosine distance ≥ 1.3 from few-shot prompt", options: { bullet: { type: "number" }, breakLine: true } },
+    { text: "Build system prompt with few-shot [Context]/[reply] examples → call chatWithOllama(system, history, message)", options: { bullet: { type: "number" } } },
+  ], { x: 0.48, y: 3.65, w: 9.0, h: 1.25, fontSize: 11, fontFace: "Calibri", color: C.darkText });
 }
 
 // ===== SLIDE 25: IMPLEMENTATION — FRONTEND =====
@@ -930,18 +924,18 @@ function addHeader(slide: Slide, title: string) {
       color: C.teal,
     },
     {
-      label: "Format Validation",
-      desc: "hasValidChatFormat runs a lightweight regex test before accepting a file. Non-WhatsApp files are rejected client-side before any API call is made.",
+      label: "Conversation History",
+      desc: "The last 6 chatTurns are mapped to { role, content } and sent as conversationHistory with every request. Ollama receives them as proper user/assistant chat turns — enabling multi-turn coherence without backend session state.",
       color: C.blue,
     },
     {
-      label: "Chat History Accumulation",
-      desc: "Each simulation appends a { role, content } pair to chatTurns, building a persistent conversation thread within the session without any backend session state.",
+      label: "Monospace Chat Log",
+      desc: "Chat turns render as a scrollable monospace log above the textarea, formatted as DD/MM/YY, HH:MM - ROLE: content. A TypingIndicator shows an animated dot sequence during inference.",
       color: C.midBlue,
     },
     {
-      label: "UI Component Library",
-      desc: "Entirely composed of shadcn/ui primitives (Card, Button, Textarea, Badge, Alert, ScrollArea, RadioGroup) with Tailwind CSS v4 and dark mode via next-themes.",
+      label: "Retrieved Context Panel",
+      desc: "Shows ConversationPair cards: context window in monospace block, persona reply highlighted with a left border, colour-coded distance badge (default=relevant, secondary=acceptable, outline=distant/not used).",
       color: C.teal,
     },
   ];
@@ -959,18 +953,307 @@ function addHeader(slide: Slide, title: string) {
   });
 }
 
-// ===== SLIDE 26: THANK YOU =====
+// ===== SLIDE 26: SYSTEM TESTING — UNIT & API =====
+{
+  const s = pres.addSlide();
+  addHeader(s, "System Testing — Unit-Level & API Integration");
+
+  s.addText("Unit-Level Verification", { x: 0.3, y: 0.85, w: 5, h: 0.3, fontSize: 13, bold: true, color: C.darkText, fontFace: "Arial", margin: 0 });
+
+  s.addTable([
+    [
+      { text: "Module", options: { bold: true, color: C.white, fill: { color: C.teal }, fontSize: 9.5, fontFace: "Arial" } },
+      { text: "Test Case", options: { bold: true, color: C.white, fill: { color: C.teal }, fontSize: 9.5, fontFace: "Arial" } },
+      { text: "Result", options: { bold: true, color: C.white, fill: { color: C.teal }, fontSize: 9.5, fontFace: "Arial" } },
+    ],
+    ["chat-parser.ts", "Valid WhatsApp .txt file → correct author, timestamp, content", "Pass"],
+    ["chat-parser.ts", "Multi-line message continuation appended to previous record", "Pass"],
+    ["chat-parser.ts", "<Media omitted> and bare URL lines filtered out", "Pass"],
+    ["chat-parser.ts", "getConversationPairs() on 100-message chat → non-empty context + reply", "Pass"],
+    ["chat-parser.ts", "Reply < 4 chars or bare URL → pair skipped", "Pass"],
+    ["personality.ts", "Valid JSON from Ollama → profile parsed correctly", "Pass"],
+    ["personality.ts", "Malformed/prose LLM response → fallback profile, no crash", "Pass"],
+    ["chroma.ts", "Re-running persona creation → upsert deduplicates, no duplicate vectors", "Pass"],
+    ["chroma.ts", "Duplicate IDs in same batch → in-memory dedup removes before upsert", "Pass"],
+  ], {
+    x: 0.3, y: 1.2, w: 9.4, h: 2.6,
+    colW: [2.2, 5.4, 1.8],
+    border: { pt: 0.5, color: C.tableBorder }, fill: { color: C.cardBg },
+    fontSize: 9.5, fontFace: "Calibri", color: C.darkText, rowH: 0.25,
+  });
+
+  s.addText("API Integration Testing", { x: 0.3, y: 3.9, w: 5, h: 0.3, fontSize: 13, bold: true, color: C.darkText, fontFace: "Arial", margin: 0 });
+
+  s.addTable([
+    [
+      { text: "Endpoint", options: { bold: true, color: C.white, fill: { color: C.blue }, fontSize: 9.5, fontFace: "Arial" } },
+      { text: "Scenario", options: { bold: true, color: C.white, fill: { color: C.blue }, fontSize: 9.5, fontFace: "Arial" } },
+      { text: "Status", options: { bold: true, color: C.white, fill: { color: C.blue }, fontSize: 9.5, fontFace: "Arial" } },
+      { text: "Result", options: { bold: true, color: C.white, fill: { color: C.blue }, fontSize: 9.5, fontFace: "Arial" } },
+    ],
+    ["POST /api/personas", "Missing personaName field", "400", "Pass"],
+    ["POST /api/personas", "Valid request, Ollama running", "200 PersonaRecord", "Pass"],
+    ["POST /api/personas/chat", "All pairs above relevance threshold", "200 style-only mode", "Pass"],
+    ["POST /api/personas/chat", "Valid request after persona creation", "200 reply + context", "Pass"],
+    ["POST /api/personas/chat", "Ollama service offline", "500 with error detail", "Pass"],
+  ], {
+    x: 0.3, y: 4.25, w: 9.4, h: 1.2,
+    colW: [2.4, 3.5, 1.8, 1.7],
+    border: { pt: 0.5, color: C.tableBorder }, fill: { color: C.cardBg },
+    fontSize: 9.5, fontFace: "Calibri", color: C.darkText, rowH: 0.2,
+  });
+}
+
+// ===== SLIDE 27: SYSTEM TESTING — E2E & PERFORMANCE =====
+{
+  const s = pres.addSlide();
+  addHeader(s, "System Testing — End-to-End & Performance");
+
+  s.addText("End-to-End Test Scenarios", { x: 0.3, y: 0.85, w: 5, h: 0.3, fontSize: 13, bold: true, color: C.darkText, fontFace: "Arial", margin: 0 });
+
+  const scenarios = [
+    { title: "Full Persona Creation", desc: "Upload .txt → options populate → Create Persona → profile JSON + stats render. Stored pair count confirms embedding ran correctly." },
+    { title: "Multi-turn Chat", desc: "Type message → simulate → reply in log. Second turn maintains context; no tone reset. conversationHistory correctly passed on every request." },
+    { title: "Relevance Gate", desc: "Query topic unrelated to persona's chat → all pairs show 'distant' badge → reply still generated using style-only prompt, no crash." },
+    { title: "Edge Cases", desc: "Non-WhatsApp file rejected before API call. Persona name matching a known fictional character correctly identified as a real person. Chroma offline → 500 surfaced gracefully." },
+  ];
+
+  scenarios.forEach((sc, i) => {
+    const y = 1.22 + i * 0.82;
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 9.4, h: 0.72, fill: { color: C.cardBg }, line: { color: C.cardBorder }, shadow: makeShadow() });
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 0.07, h: 0.72, fill: { color: i % 2 === 0 ? C.teal : C.blue }, line: { color: i % 2 === 0 ? C.teal : C.blue } });
+    s.addText(`Scenario ${i + 1}: ${sc.title}`, { x: 0.48, y: y + 0.06, w: 9.0, h: 0.26, fontSize: 11.5, bold: true, color: C.darkText, fontFace: "Arial", margin: 0 });
+    s.addText(sc.desc, { x: 0.48, y: y + 0.38, w: 9.0, h: 0.28, fontSize: 10.5, color: C.mutedText, fontFace: "Calibri", margin: 0 });
+  });
+
+  s.addText("Performance Observations (CPU inference)", { x: 0.3, y: 4.55, w: 6, h: 0.3, fontSize: 13, bold: true, color: C.darkText, fontFace: "Arial", margin: 0 });
+
+  s.addTable([
+    [
+      { text: "Operation", options: { bold: true, color: C.white, fill: { color: C.midBlue }, fontSize: 9.5, fontFace: "Arial" } },
+      { text: "Observed Duration", options: { bold: true, color: C.white, fill: { color: C.midBlue }, fontSize: 9.5, fontFace: "Arial" } },
+    ],
+    ["Chat parsing (500-message file)", "< 50 ms (client-side)"],
+    ["Personality extraction (LLaMA 3, CPU)", "15 – 40 seconds"],
+    ["Embedding all pairs (nomic-embed-text)", "20 – 90 seconds (pair count dependent)"],
+    ["Chat simulation (single turn)", "10 – 25 seconds"],
+    ["Chroma vector query (top-6)", "< 200 ms"],
+  ], {
+    x: 0.3, y: 4.88, w: 9.4, h: 0.62,
+    colW: [5.5, 3.9],
+    border: { pt: 0.5, color: C.tableBorder }, fill: { color: C.cardBg },
+    fontSize: 9.5, fontFace: "Calibri", color: C.darkText, rowH: 0.1,
+  });
+}
+
+// ===== SLIDE 28: RESULTS — PERSONA CREATION =====
+{
+  const s = pres.addSlide();
+  addHeader(s, "Results: Persona Creation");
+
+  const points = [
+    {
+      icon: "01", color: C.teal,
+      title: "Parsing",
+      desc: "All messages parsed correctly with author attribution, timestamp normalisation, and noise filtering in under 100 ms.",
+    },
+    {
+      icon: "02", color: C.blue,
+      title: "Conversation Pairs",
+      desc: "4-message sliding window extracted meaningful (context → reply) pairs across the full chat. Short messages and URLs correctly filtered before embedding.",
+    },
+    {
+      icon: "03", color: C.midBlue,
+      title: "Profile Extraction",
+      desc: "Evenly distributed sampling captured both early and late conversational patterns. Profiles demonstrated meaningful differentiation between speakers in the same conversation.",
+    },
+    {
+      icon: "04", color: C.teal,
+      title: "Vector Storage",
+      desc: "Context-window embeddings stored in ditto_pairs_v1. Retrieval finds situations similar to the query rather than words — a fundamentally more useful signal for simulation.",
+    },
+  ];
+
+  points.forEach((p, i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const x = col === 0 ? 0.3 : 5.2;
+    const y = 0.88 + row * 2.18;
+
+    s.addShape(pres.shapes.RECTANGLE, { x, y, w: 4.6, h: 2.0, fill: { color: C.cardBg }, line: { color: C.cardBorder }, shadow: makeShadow() });
+    s.addShape(pres.shapes.RECTANGLE, { x, y, w: 4.6, h: 0.38, fill: { color: p.color }, line: { color: p.color } });
+    s.addText(`${p.icon}  ${p.title}`, { x: x + 0.12, y: y + 0.05, w: 4.35, h: 0.3, fontSize: 12, bold: true, color: C.white, fontFace: "Arial", margin: 0 });
+    s.addText(p.desc, { x: x + 0.15, y: y + 0.5, w: 4.3, h: 1.4, fontSize: 11, color: C.mutedText, fontFace: "Calibri", margin: 0 });
+  });
+}
+
+// ===== SLIDE 29: RESULTS — CHAT SIMULATION =====
+{
+  const s = pres.addSlide();
+  addHeader(s, "Results: Chat Simulation & Discussion");
+
+  const results = [
+    { label: "Situational Retrieval", desc: "Pair-based retrieval found exchanges matching the situation of the query, not just semantically similar words — producing more contextually appropriate few-shot examples." },
+    { label: "Few-shot Grounding", desc: "Real (context → reply) examples gave the LLM concrete behavioural evidence. Replies reflected actual vocabulary, capitalization, and emoji usage from the source chat." },
+    { label: "Multi-turn Coherence", desc: "Passing conversation history as structured chat turns via /api/chat prevented tone resets between turns — personas maintained consistent voice across multi-turn exchanges." },
+    { label: "Relevance Gate", desc: "Correctly excluded unrelated pairs at distance ≥ 1.3 while still providing examples for on-topic queries. Style-only fallback worked without crashes." },
+    { label: "Name Disambiguation", desc: "Identifying persona as 'a real person named X' in the system prompt eliminated LLM hallucinations caused by the name matching fictional characters in training data." },
+  ];
+
+  results.forEach((r, i) => {
+    const y = 0.9 + i * 0.73;
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 9.4, h: 0.63, fill: { color: "F5F5F5" }, line: { color: i % 2 === 0 ? C.teal : C.blue, width: 0.5 } });
+    s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y, w: 0.06, h: 0.63, fill: { color: i % 2 === 0 ? C.teal : C.blue }, line: { color: i % 2 === 0 ? C.teal : C.blue } });
+    s.addText(r.label, { x: 0.48, y: y + 0.06, w: 2.4, h: 0.25, fontSize: 11, bold: true, color: C.darkText, fontFace: "Arial", margin: 0 });
+    s.addText(r.desc, { x: 2.95, y: y + 0.06, w: 6.65, h: 0.5, fontSize: 10.5, color: "262626", fontFace: "Calibri", margin: 0 });
+  });
+
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 4.7, w: 9.4, h: 0.78, fill: { color: C.darkCallout }, line: { color: C.teal, width: 0.5 } });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 4.7, w: 0.07, h: 0.78, fill: { color: C.teal }, line: { color: C.teal } });
+  s.addText(
+    "Key insight: the shift from individual message storage → conversation-pair storage is the single most impactful architectural change. Embedding the context side means retrieval answers \"what situation is most similar?\" rather than \"what did the persona say that sounds similar?\"",
+    { x: 0.45, y: 4.76, w: 9.1, h: 0.65, fontSize: 10.5, color: "262626", fontFace: "Calibri", italic: true, margin: 0 }
+  );
+}
+
+// ===== SLIDE 30: LIMITATIONS =====
+{
+  const s = pres.addSlide();
+  addHeader(s, "Limitations");
+
+  const rows = [
+    [
+      { text: "Limitation", options: { bold: true, color: C.white, fill: { color: C.blue }, fontSize: 10, fontFace: "Arial" } },
+      { text: "Impact", options: { bold: true, color: C.white, fill: { color: C.blue }, fontSize: 10, fontFace: "Arial" } },
+      { text: "Mitigation", options: { bold: true, color: C.white, fill: { color: C.blue }, fontSize: 10, fontFace: "Arial" } },
+    ],
+    ["No automated test suite", "Regressions may go undetected", "Add Jest/Vitest unit tests for parser and pair extractor"],
+    ["LLM output variability", "Profile quality varies between runs", "Temperature tuning; structured output enforcement"],
+    ["Single-collection Chroma design", "All personas share one collection; may slow at scale", "Partition into per-persona collections at scale"],
+    ["Session-only chat history", "Conversation resets on page reload", "Persist chatTurns to localStorage or a backend store"],
+    ["No multi-user support", "Single-user, local deployment only", "Add session management for shared deployments"],
+    ["Pair count grows with chat size", "Embedding large chats takes longer", "Batch-limit upserts; background processing"],
+  ];
+
+  s.addTable(rows, {
+    x: 0.3, y: 0.88, w: 9.4, h: 3.8,
+    colW: [2.8, 2.8, 3.8],
+    border: { pt: 0.5, color: C.tableBorder },
+    fill: { color: C.cardBg },
+    fontSize: 10.5, fontFace: "Calibri", color: C.darkText,
+    rowH: 0.52,
+  });
+
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 4.82, w: 9.4, h: 0.62, fill: { color: "F5F5F5" }, line: { color: C.teal, width: 0.5 } });
+  s.addText(
+    "Privacy validation: all processing — parsing, embedding, generation, storage — completed without any outbound network traffic to external servers. Fully air-gap operable.",
+    { x: 0.48, y: 4.88, w: 9.1, h: 0.5, fontSize: 10.5, color: "262626", fontFace: "Calibri", italic: true, margin: 0 }
+  );
+}
+
+// ===== SLIDE 31: APP SCREENSHOTS — Upload & Persona Detection =====
+{
+  const s = pres.addSlide();
+  addHeader(s, "App Screenshots — Upload & Persona Detection");
+
+  // Left placeholder
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.88, w: 4.55, h: 4.4, fill: { color: "F0F0F0" }, line: { color: C.cardBorder, width: 1 }, shadow: makeShadow() });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.88, w: 4.55, h: 0.38, fill: { color: C.blue }, line: { color: C.blue } });
+  s.addText("Chat Upload Panel", { x: 0.3, y: 0.88, w: 4.55, h: 0.38, fontSize: 11, bold: true, color: C.white, fontFace: "Arial", align: "center", valign: "middle", margin: 0 });
+  // Replace with: s.addImage({ path: "docs/screenshots/upload-panel.png", x: 0.3, y: 1.26, w: 4.55, h: 4.0 });
+  // s.addText("[ SCREENSHOT PLACEHOLDER ]\n\ndocs/screenshots/upload-panel.png", {
+  //   x: 0.3, y: 1.26, w: 4.55, h: 4.0, fontSize: 11, color: C.mutedText, fontFace: "Calibri", align: "center", valign: "middle", margin: 0,
+  // });
+  s.addImage({ path: "docs/screenshots/upload-panel.png", x: 0.56, y: 1.5, w: 4.02, h: 3.52 });
+
+  // Right placeholder
+  s.addShape(pres.shapes.RECTANGLE, { x: 5.15, y: 0.88, w: 4.55, h: 4.4, fill: { color: "F0F0F0" }, line: { color: C.cardBorder, width: 1 }, shadow: makeShadow() });
+  s.addShape(pres.shapes.RECTANGLE, { x: 5.15, y: 0.88, w: 4.55, h: 0.38, fill: { color: C.blue }, line: { color: C.blue } });
+  s.addText("Persona Selector & Chat Preview", { x: 5.15, y: 0.88, w: 4.55, h: 0.38, fontSize: 11, bold: true, color: C.white, fontFace: "Arial", align: "center", valign: "middle", margin: 0 });
+  // Replace with: s.addImage({ path: "docs/screenshots/persona-selector.png", x: 5.15, y: 1.26, w: 4.55, h: 4.0 });
+  // s.addText("[ SCREENSHOT PLACEHOLDER ]\n\ndocs/screenshots/persona-selector.png", {
+  //   x: 5.15, y: 1.26, w: 4.55, h: 4.0, fontSize: 11, color: C.mutedText, fontFace: "Calibri", align: "center", valign: "middle", margin: 0,
+  // });
+  s.addImage({ path: "docs/screenshots/persona-selector.png", x: 5.91, y: 1.45, w: 3.03, h: 3.62 });
+}
+
+// ===== SLIDE 32: APP SCREENSHOTS — Personality Profile =====
+{
+  const s = pres.addSlide();
+  addHeader(s, "App Screenshots — Extracted Personality Profile");
+
+  // Left placeholder
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.88, w: 4.55, h: 4.4, fill: { color: "F0F0F0" }, line: { color: C.cardBorder, width: 1 }, shadow: makeShadow() });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.88, w: 4.55, h: 0.38, fill: { color: C.teal }, line: { color: C.teal } });
+  s.addText("Profile JSON Viewer", { x: 0.3, y: 0.88, w: 4.55, h: 0.38, fontSize: 11, bold: true, color: C.white, fontFace: "Arial", align: "center", valign: "middle", margin: 0 });
+  // Replace with: s.addImage({ path: "docs/screenshots/profile-json.png", x: 0.3, y: 1.26, w: 4.55, h: 4.0 });
+  // s.addText("[ SCREENSHOT PLACEHOLDER ]\n\ndocs/screenshots/profile-json.png", {
+  //   x: 0.3, y: 1.26, w: 4.55, h: 4.0, fontSize: 11, color: C.mutedText, fontFace: "Calibri", align: "center", valign: "middle", margin: 0,
+  // });
+  s.addImage({ path: "docs/screenshots/profile-json.png", x: 1.18, y: 1.39, w: 2.79, h: 3.74 });
+
+  // Right placeholder
+  s.addShape(pres.shapes.RECTANGLE, { x: 5.15, y: 0.88, w: 4.55, h: 4.4, fill: { color: "F0F0F0" }, line: { color: C.cardBorder, width: 1 }, shadow: makeShadow() });
+  s.addShape(pres.shapes.RECTANGLE, { x: 5.15, y: 0.88, w: 4.55, h: 0.38, fill: { color: C.teal }, line: { color: C.teal } });
+  s.addText("Summary Stats Panel", { x: 5.15, y: 0.88, w: 4.55, h: 0.38, fontSize: 11, bold: true, color: C.white, fontFace: "Arial", align: "center", valign: "middle", margin: 0 });
+  // Replace with: s.addImage({ path: "docs/screenshots/summary-stats.png", x: 5.15, y: 1.26, w: 4.55, h: 4.0 });
+  // s.addText("[ SCREENSHOT PLACEHOLDER ]\n\ndocs/screenshots/summary-stats.png", {
+  //   x: 5.15, y: 1.26, w: 4.55, h: 4.0, fontSize: 11, color: C.mutedText, fontFace: "Calibri", align: "center", valign: "middle", margin: 0,
+  // });
+  s.addImage({ path: "docs/screenshots/summary-stats.png", x: 5.29, y: 2.55, w: 4.28, h: 1.43 });
+}
+
+// ===== SLIDE 33: APP SCREENSHOTS — Chat Simulation =====
+{
+  const s = pres.addSlide();
+  addHeader(s, "App Screenshots — Chat Simulation");
+
+  // Left placeholder
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.88, w: 4.55, h: 4.4, fill: { color: "F0F0F0" }, line: { color: C.cardBorder, width: 1 }, shadow: makeShadow() });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.88, w: 4.55, h: 0.38, fill: { color: C.midBlue }, line: { color: C.midBlue } });
+  s.addText("Chat Simulation Panel", { x: 0.3, y: 0.88, w: 4.55, h: 0.38, fontSize: 11, bold: true, color: C.white, fontFace: "Arial", align: "center", valign: "middle", margin: 0 });
+  // Replace with: s.addImage({ path: "docs/screenshots/chat-simulation.png", x: 0.3, y: 1.26, w: 4.55, h: 4.0 });
+  // s.addText("[ SCREENSHOT PLACEHOLDER ]\n\ndocs/screenshots/chat-simulation.png", {
+  //   x: 0.3, y: 1.26, w: 4.55, h: 4.0, fontSize: 11, color: C.mutedText, fontFace: "Calibri", align: "center", valign: "middle", margin: 0,
+  // });
+  s.addImage({ path: "docs/screenshots/chat-simulation.png", x: 1.18, y: 1.41, w: 2.8, h: 3.7 });
+
+  // Right placeholder
+  s.addShape(pres.shapes.RECTANGLE, { x: 5.15, y: 0.88, w: 4.55, h: 4.4, fill: { color: "F0F0F0" }, line: { color: C.cardBorder, width: 1 }, shadow: makeShadow() });
+  s.addShape(pres.shapes.RECTANGLE, { x: 5.15, y: 0.88, w: 4.55, h: 0.38, fill: { color: C.midBlue }, line: { color: C.midBlue } });
+  s.addText("Retrieved Context — Pair Cards", { x: 5.15, y: 0.88, w: 4.55, h: 0.38, fontSize: 11, bold: true, color: C.white, fontFace: "Arial", align: "center", valign: "middle", margin: 0 });
+  // Replace with: s.addImage({ path: "docs/screenshots/retrieved-context.png", x: 5.15, y: 1.26, w: 4.55, h: 4.0 });
+  // s.addText("[ SCREENSHOT PLACEHOLDER ]\n\ndocs/screenshots/retrieved-context.png", {
+  //   x: 5.15, y: 1.26, w: 4.55, h: 4.0, fontSize: 11, color: C.mutedText, fontFace: "Calibri", align: "center", valign: "middle", margin: 0,
+  // });
+  s.addImage({ path: "docs/screenshots/retrieved-context.png", x: 6.52, y: 1.35, w: 1.81, h: 3.82 });
+}
+
+// ===== SLIDE 34: APP SCREENSHOTS — Full UI Overview =====
+{
+  const s = pres.addSlide();
+  addHeader(s, "App Screenshots — Full UI Overview");
+
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.88, w: 9.4, h: 4.4, fill: { color: "F0F0F0" }, line: { color: C.cardBorder, width: 1 }, shadow: makeShadow() });
+  s.addShape(pres.shapes.RECTANGLE, { x: 0.3, y: 0.88, w: 9.4, h: 0.38, fill: { color: C.darkBg }, line: { color: C.darkBg } });
+  s.addText("Full Application — Hero + Status + Persona + Simulation Panels", { x: 0.3, y: 0.88, w: 9.4, h: 0.38, fontSize: 11, bold: true, color: C.white, fontFace: "Arial", align: "center", valign: "middle", margin: 0 });
+  // Replace with: s.addImage({ path: "docs/screenshots/full-ui.png", x: 0.3, y: 1.26, w: 9.4, h: 4.0 });
+  // s.addText("[ SCREENSHOT PLACEHOLDER ]\n\ndocs/screenshots/full-ui.png", {
+  //   x: 0.3, y: 1.26, w: 9.4, h: 4.0, fontSize: 11, color: C.mutedText, fontFace: "Calibri", align: "center", valign: "middle", margin: 0,
+  // });
+  s.addImage({ path: "docs/screenshots/full-ui.png", x: 3.94, y: 1.37, w: 2.12, h: 3.78 });
+}
+
+// ===== SLIDE 35: THANK YOU =====
 {
   const s = pres.addSlide();
   s.background = { color: C.darkBg };
 
-  // Border frame
   s.addShape(pres.shapes.RECTANGLE, { x: 0, y: 0, w: 10, h: 0.07, fill: { color: C.teal }, line: { color: C.teal } });
   s.addShape(pres.shapes.RECTANGLE, { x: 0, y: 5.555, w: 10, h: 0.07, fill: { color: C.teal }, line: { color: C.teal } });
   s.addShape(pres.shapes.RECTANGLE, { x: 0, y: 0, w: 0.15, h: 5.625, fill: { color: C.teal }, line: { color: C.teal } });
   s.addShape(pres.shapes.RECTANGLE, { x: 9.85, y: 0, w: 0.15, h: 5.625, fill: { color: C.teal }, line: { color: C.teal } });
 
-  // Accent line behind the main text
   s.addShape(pres.shapes.RECTANGLE, { x: 2.5, y: 2.52, w: 5.0, h: 0.06, fill: { color: C.teal }, line: { color: C.teal } });
 
   s.addText("Thank You", {
@@ -988,7 +1271,7 @@ function addHeader(slide: Slide, title: string) {
     fontSize: 13, color: "A1A1A1", fontFace: "Calibri", align: "center", margin: 0,
   });
 
-  s.addText("Next.js  ·  Ollama / LLaMA 3  ·  ChromaDB  ·  nomic-embed-text  ·  RAG", {
+  s.addText("Next.js  ·  Ollama / LLaMA 3  ·  ChromaDB ditto_pairs_v1  ·  nomic-embed-text  ·  Conversation-pair RAG", {
     x: 1.0, y: 4.85, w: 8, h: 0.35,
     fontSize: 10, color: "737373", fontFace: "Consolas", align: "center", margin: 0,
   });

@@ -18,6 +18,8 @@ The rapid growth of large language models (LLMs) has opened new possibilities fo
 
 **Vector embeddings** convert text into dense numerical representations that capture semantic meaning. Similar texts cluster together in embedding space, making it possible to retrieve the most contextually relevant past messages for a given query using distance metrics such as cosine similarity.
 
+**Conversation-pair RAG** is a refinement of standard RAG that stores **(trigger → response)** pairs instead of isolated utterances. The embedding is computed on the trigger side so that retrieval finds the situations most similar to the incoming query — not just semantically related words — and the associated response serves as a few-shot example for the LLM.
+
 **Ollama** is a local inference runtime that allows models such as Meta's LLaMA 3 to be run entirely offline on consumer hardware. **ChromaDB** is an open-source, embeddable vector database suited for RAG pipelines.
 
 Together, these technologies enable a fully local, privacy-preserving pipeline for persona construction — no data is sent to external APIs.
@@ -32,7 +34,7 @@ Existing chatbot and persona systems typically require:
 - Manual prompt engineering per person
 - Re-training or fine-tuning of models
 
-There is no accessible, local tool that allows a user to **upload a raw WhatsApp-style chat export, automatically extract a structured personality profile, store conversational memories, and simulate responses** in the style of a chosen participant — all without sending data to the cloud.
+There is no accessible, local tool that allows a user to **upload a raw WhatsApp-style chat export, automatically extract a structured personality profile, store conversational memory as context-grounded pairs, and simulate responses** in the style of a chosen participant — all without sending data to the cloud.
 
 ---
 
@@ -40,10 +42,11 @@ There is no accessible, local tool that allows a user to **upload a raw WhatsApp
 
 1. Parse WhatsApp-format plain-text chat exports and extract per-author message sets.
 2. Automatically derive a structured **PersonalityProfile** (tone, style, vocabulary, sentiment, etc.) using an LLM prompt via Ollama.
-3. Embed all persona messages and store them in ChromaDB for semantic memory retrieval.
-4. Simulate natural-language replies to new user messages, grounded in the extracted profile and the top-K retrieved memories.
-5. Provide an intuitive, browser-based UI that requires no command-line interaction beyond starting local services.
-6. Keep the entire pipeline **offline and private** — no cloud APIs, no telemetry.
+3. Extract **(context window → persona reply)** pairs from the chat and embed the context side for semantic retrieval.
+4. Simulate natural-language replies grounded in few-shot examples drawn from retrieved pairs, the personality profile, and the current conversation history.
+5. Gate retrieval quality — exclude semantically distant pairs and fall back gracefully to general style guidance.
+6. Provide an intuitive, browser-based UI that requires no command-line interaction beyond starting local services.
+7. Keep the entire pipeline **offline and private** — no cloud APIs, no telemetry.
 
 ---
 
@@ -70,16 +73,18 @@ There is no accessible, local tool that allows a user to **upload a raw WhatsApp
 DITTO is a **local-first, RAG-powered digital twin studio** consisting of:
 
 - A **Next.js web application** with a clean UI for uploading chat exports, selecting personas, and simulating replies.
-- A **chat parser** that decodes WhatsApp-format exports (date, time, author, content) and normalises timestamps to ISO format.
+- A **chat parser** that decodes WhatsApp-format exports and derives sliding-window **(context → reply)** pairs for every persona message.
 - A **personality extractor** that uses Ollama/LLaMA 3 to produce a structured JSON profile covering tone, communication style, common phrases, sentiment, vocabulary patterns, and relationship signals.
-- A **vector memory store** (ChromaDB + `nomic-embed-text`) that embeds all persona messages and enables top-K semantic retrieval at chat time.
-- A **simulation engine** that composes a persona-grounded prompt from the profile and retrieved context, then calls Ollama to generate a reply.
+- A **vector memory store** (ChromaDB `ditto_pairs_v1` + `nomic-embed-text`) that embeds the **context side** of each conversation pair, enabling retrieval by situational similarity.
+- A **simulation engine** that injects retrieved pairs as few-shot examples into a strict system prompt, passes the current conversation history as proper chat turns, and calls Ollama's `/api/chat` endpoint to generate a grounded reply.
+- A **relevance gate** that excludes pairs with cosine distance ≥ 1.3 from the few-shot block and signals the LLM to rely on general style guidance when no relevant context exists.
 
 **Advantages over existing systems:**
 - Fully local — no data leaves the machine.
 - No fine-tuning required; works with any LLaMA 3-compatible model.
-- Structured, inspectable personality profiles in JSON.
-- Retrieval-augmented replies grounded in actual past messages.
+- Retrieval finds *situations* similar to the query, not just similar words.
+- Few-shot examples drawn from real (trigger → response) pairs produce authentic, grounded replies.
+- Multi-turn conversation history is maintained across simulation turns.
 - Extensible: swap the model, embedder, or vector store via environment variables.
 
 ---
@@ -95,48 +100,52 @@ DD/MM/YY, H:MM [am/pm] - Author: Message
 - Strips noise lines (`<Media omitted>`, encryption notices, blank lines).
 - Normalises timestamps to `YYYY-MM-DD HH:MM` (24-hour ISO format).
 - Generates a SHA-1 ID per message for stable deduplication.
-- Exports: `parseChatHistory`, `getPersonaMessages`, `getAverageWordsPerMessage`.
+- **`getConversationPairs(messages, personaName, windowSize=4)`** — for every persona reply, collects the preceding N messages from any author as the context window. Short messages (< 4 chars) and bare URLs are skipped so only semantically meaningful pairs are stored.
+- Exports: `parseChatHistory`, `getPersonaMessages`, `getConversationPairs`, `getAverageWordsPerMessage`.
 
 ### 7.2 Personality Extractor (`lib/personality.ts`)
 Builds a `PersonalityProfile` for a chosen author:
-- Samples the first 80 messages to stay within context limits.
-- Computes top-8 frequent words (≥3 chars, appearing >1 time) as phrase hints.
-- Sends a structured prompt to Ollama requesting a JSON object with 8 fields.
-- Extracts the JSON block from the raw LLM response using brace-matching.
-- Falls back gracefully to a default profile if extraction fails.
+- Samples messages **evenly across the full history** (up to 100 filtered messages, stepped by index) so early and late conversational patterns are both represented.
+- Computes top-8 frequent words (≥ 3 chars, appearing > 1 time) as phrase hints.
+- Sends a structured prompt to Ollama that includes the persona's actual raw messages as concrete evidence alongside a short conversation transcript, instructing the LLM to describe **observed** behaviour rather than generic categories.
+- Extracts the JSON block from the raw LLM response using brace-matching and falls back gracefully to a default profile if extraction fails.
 
 ### 7.3 Ollama Client (`lib/ollama.ts`)
 Thin HTTP wrapper around the Ollama REST API:
-- `generateWithOllama(prompt)` — calls `/api/generate` with LLaMA 3 at temperature 0.7.
-- `embedWithOllama(texts[])` — calls `/api/embed` using `nomic-embed-text`; supports both `embeddings[]` and legacy `embedding` response shapes.
+- **`generateWithOllama(prompt)`** — calls `/api/generate` with LLaMA 3 at temperature 0.7. Used for personality profile extraction.
+- **`chatWithOllama(system, history[], userMessage)`** — calls `/api/chat` with a proper `system` role message, an array of prior `user`/`assistant` turns, and the current user message. Used for all persona simulation. Temperature 0.85.
+- **`embedWithOllama(texts[])`** — calls `/api/embed` using `nomic-embed-text`; supports both `embeddings[]` and legacy `embedding` response shapes.
 - Configurable via `OLLAMA_URL`, `OLLAMA_MODEL`, `OLLAMA_EMBED_MODEL` environment variables.
 
 ### 7.4 Chroma Memory Store (`lib/chroma.ts`)
-Manages the `ditto_memories_v2` ChromaDB collection:
-- `storePersonaMemories` — upserts all persona messages as embeddings, storing author, timestamp, and personaName as metadata.
-- `queryPersonaMemories` — embeds the incoming user message, queries ChromaDB with a `where` filter on `personaName`, and returns the top-K results with distance scores.
+Manages the `ditto_pairs_v1` ChromaDB collection:
+- **`storeConversationPairs(personaName, pairs[])`** — embeds the `contextWindow` text of each pair via Ollama, then upserts with the `personaReply` as the document and `{ personaName, contextWindow, timestamp }` as metadata. IDs are SHA-1 hashes of `personaName:contextWindow:reply` for idempotent re-runs. Deduplication is applied before the upsert call.
+- **`queryConversationPairs(personaName, queryText, limit=6)`** — embeds the incoming user message, queries ChromaDB filtered by `personaName`, and returns `ConversationPair[]` including cosine-distance scores.
 
 ### 7.5 API Routes (`app/api/personas/`)
 **`POST /api/personas`** — Create Persona endpoint:
 1. Validates request body (`personaName`, `chatHistory`).
 2. Parses chat, filters to persona messages, computes summary stats.
-3. Calls personality extractor and memory store in sequence.
-4. Returns `CreatePersonaResponse` with the full persona record and stored memory count.
+3. Calls `getConversationPairs` to extract all (context → reply) pairs from the full message thread.
+4. Calls personality extractor (Ollama) and `storeConversationPairs` (Chroma) in sequence.
+5. Returns `CreatePersonaResponse` with the full persona record and stored pair count.
 
 **`POST /api/personas/chat`** — Chat Simulation endpoint:
-1. Validates request body (`personaName`, `message`, `profile`).
-2. Retrieves top-5 semantic memories from ChromaDB.
-3. Builds a simulation prompt combining the personality profile and retrieved context.
-4. Calls Ollama for generation and returns the reply with retrieved memories.
+1. Validates request body (`personaName`, `message`, `profile`, `conversationHistory`).
+2. Retrieves top-6 nearest conversation pairs from ChromaDB by embedding the user message against the context-side embeddings.
+3. Applies the relevance gate: pairs with cosine distance ≥ 1.3 are excluded from the few-shot prompt (but still returned in `retrievedContext` for UI inspection).
+4. Builds a system prompt containing the personality profile summary and the usable pairs formatted as `[Context] / [persona replied]` few-shot examples.
+5. Calls `chatWithOllama` with the system prompt, the last 6 turns of `conversationHistory`, and the current user message.
+6. Returns the reply and all retrieved pairs (with distance scores) for display.
 
 ### 7.6 UI — Ditto Studio (`components/ditto-studio.tsx`)
 Single-page React component with four visual sections:
 - **Hero card** — project overview and feature highlights.
 - **System status card** — live display of stack components (Next.js, Ollama, Chroma).
 - **Create Persona panel** — file upload, format validation, speaker detection radio group, chat preview, and persona creation trigger.
-- **Chat Simulation panel** — message input, simulate button, and a chat-bubble conversation thread.
+- **Chat Simulation panel** — scrollable conversation log in monospace chat format, message textarea, and simulate button. Each request includes the last 6 chat turns as `conversationHistory`.
 - **Extracted Profile panel** — summary stats and raw JSON profile viewer.
-- **Retrieved Context panel** — per-memory cards with author, timestamp, and distance badges.
+- **Retrieved Context panel** — per-pair cards showing the context window, the persona's actual reply, timestamp, and a colour-coded distance badge (default = relevant, secondary = acceptable, outline = distant).
 
 ---
 
@@ -146,8 +155,8 @@ Single-page React component with four visual sections:
 
 | Component | Technology | Version / Notes |
 |---|---|---|
-| Frontend framework | Next.js (App Router) | v14+ |
-| UI language | TypeScript + React | React 18+ |
+| Frontend framework | Next.js (App Router) | v16+ |
+| UI language | TypeScript + React | React 19+ |
 | Component library | shadcn/ui (Radix + Tailwind) | Latest |
 | Local LLM runtime | Ollama | Latest stable |
 | LLM model | LLaMA 3 (`llama3`) | Meta via Ollama |
@@ -155,7 +164,7 @@ Single-page React component with four visual sections:
 | Vector database | ChromaDB | v0.5+ (REST API) |
 | ChromaDB client | `chromadb` npm package | Latest |
 | Node.js | Node.js | v18+ |
-| Package manager | npm / pnpm | — |
+| Package manager | bun | — |
 
 ### Environment Variables
 
@@ -192,13 +201,19 @@ User uploads .txt file
   • Filter by selected personaName → persona messages
         │
         ▼
-[Personality Extractor]
-  • Sample first 80 messages
-  • Build LLM prompt
+[Conversation Pair Extractor]
+  • getConversationPairs() — 4-message sliding window
+  • Each pair: { contextWindow, personaReply, timestamp }
+  • Skip replies < 4 chars or bare URLs
         │
         ▼
-[Ollama — LLaMA 3]
-  • Generate structured JSON
+[Personality Extractor]
+  • Evenly sample up to 100 messages across full history
+  • Build LLM prompt with raw message examples
+        │
+        ▼
+[Ollama — LLaMA 3 /api/generate]
+  • Generate structured JSON profile
         │
         ▼
 [JSON Normaliser]
@@ -208,15 +223,17 @@ User uploads .txt file
         │
         ▼
 [Ollama — nomic-embed-text]
-  • Embed all persona messages → float[][] vectors
+  • Embed contextWindow side of each pair → float[][] vectors
         │
         ▼
-[ChromaDB — ditto_memories_v2]
-  • Upsert vectors with metadata (author, timestamp, personaName)
+[ChromaDB — ditto_pairs_v1]
+  • Upsert pairs: embedding on context, document = personaReply
+  • Metadata: personaName, contextWindow, timestamp
+  • Deduplicated by SHA-1 of personaName:context:reply
         │
         ▼
 [API Response → UI]
-  • PersonaRecord + storedMemories count
+  • PersonaRecord + storedPairs count
   • Display profile JSON + summary stats
 ```
 
@@ -227,29 +244,38 @@ User types a message
         │
         ▼
 [POST /api/personas/chat]
-  • Receive: personaName, message, profile
+  • Receive: personaName, message, profile, conversationHistory (last 6 turns)
         │
         ▼
 [Ollama — nomic-embed-text]
   • Embed user message → query vector
         │
         ▼
-[ChromaDB — query]
+[ChromaDB — ditto_pairs_v1]
   • Filter by personaName
-  • Return top-5 nearest memories (id, content, author, timestamp, distance)
+  • Return top-6 nearest pairs (contextWindow, personaReply, distance)
         │
         ▼
-[Simulation Prompt Builder]
-  • Compose: "You are <name>. Personality: <profile JSON>. Past context: <memories>. User: <message>"
+[Relevance Gate]
+  • distance < 1.3  → usable few-shot example
+  • distance ≥ 1.3  → excluded from prompt, shown in UI as "distant"
         │
         ▼
-[Ollama — LLaMA 3]
-  • Generate reply (temperature 0.7)
+[System Prompt Builder]
+  • Role: "real person named {personaName}"
+  • Style rules from PersonalityProfile (tone, length, phrases, notes)
+  • Few-shot block: [Context] / [{personaName} replied] for each usable pair
+  • Fallback note if no pairs pass the gate
+        │
+        ▼
+[Ollama — LLaMA 3 /api/chat]
+  • messages: [system, ...conversationHistory, user]
+  • temperature 0.85
         │
         ▼
 [API Response → UI]
-  • Display reply bubble
-  • Display retrieved memory cards with distance scores
+  • Display reply in chat log
+  • Display retrieved pair cards with colour-coded distance badges
 ```
 
 ---
@@ -258,16 +284,16 @@ User types a message
 
 Since DITTO uses ChromaDB (a vector database) rather than a relational database, data is stored in a **collection** rather than SQL tables. The logical schema is described below, alongside the in-memory TypeScript types that serve as the application's data layer.
 
-### 10.1 ChromaDB Collection: `ditto_memories_v2`
+### 10.1 ChromaDB Collection: `ditto_pairs_v1`
 
 | Field | Type | Description |
 |---|---|---|
-| `id` | `string` | Unique record key: `{personaName}:{sha1_of_raw_line}` |
-| `embedding` | `float[]` | `nomic-embed-text` vector (768 dimensions) |
-| `document` | `string` | Raw message content text |
-| `metadata.personaName` | `string` | The persona this memory belongs to |
-| `metadata.author` | `string` | Original chat author name |
-| `metadata.timestamp` | `string` | Normalised ISO-style timestamp (`YYYY-MM-DD HH:MM`) |
+| `id` | `string` | SHA-1 of `personaName:contextWindow:personaReply` |
+| `embedding` | `float[]` | `nomic-embed-text` vector of the **context window** (768 dimensions) |
+| `document` | `string` | The persona's reply text |
+| `metadata.personaName` | `string` | The persona this pair belongs to |
+| `metadata.contextWindow` | `string` | The multi-turn context that preceded the reply |
+| `metadata.timestamp` | `string` | Normalised ISO-style timestamp of the reply (`YYYY-MM-DD HH:MM`) |
 
 ### 10.2 TypeScript Data Structures (Application Layer)
 
@@ -283,7 +309,7 @@ Since DITTO uses ChromaDB (a vector database) rather than a relational database,
 **PersonalityProfile** — LLM-extracted persona profile
 | Field | Type | Description |
 |---|---|---|
-| `tone` | `string` | Overall conversational tone (e.g. "casual and warm") |
+| `tone` | `string` | Overall conversational tone |
 | `communicationStyle` | `string` | How the person structures messages |
 | `responseLength` | `string` | Typical length pattern (short / medium / long) |
 | `commonPhrases` | `string[]` | Frequently used words or expressions (up to 8) |
@@ -300,13 +326,12 @@ Since DITTO uses ChromaDB (a vector database) rather than a relational database,
 | `averageWordsPerMessage` | `number` | Mean word count per message |
 | `sourceAuthors` | `string[]` | All unique authors in the full chat |
 
-**RetrievedMemory** — single ChromaDB query result
+**ConversationPair** — a retrieved (context → reply) pair
 | Field | Type | Description |
 |---|---|---|
-| `id` | `string` | ChromaDB document ID |
-| `author` | `string` | Original message author |
-| `content` | `string` | Message text |
-| `timestamp` | `string` | Message timestamp |
+| `contextWindow` | `string` | The multi-turn messages that preceded the reply |
+| `personaReply` | `string` | What the persona actually said |
+| `timestamp` | `string` | Timestamp of the reply |
 | `distance` | `number \| null` | Cosine distance from query vector (lower = more similar) |
 
 **CreatePersonaResponse** — API response for persona creation
@@ -315,13 +340,13 @@ Since DITTO uses ChromaDB (a vector database) rather than a relational database,
 | `persona.summary` | `PersonaSummary` | Aggregate stats |
 | `persona.profile` | `PersonalityProfile` | Extracted JSON profile |
 | `persona.sampleMessages` | `ChatMessage[]` | First 6 persona messages (preview) |
-| `storedMemories` | `number` | Count of vectors upserted to ChromaDB |
+| `storedMemories` | `number` | Count of conversation pairs upserted to ChromaDB |
 
 **ChatSimulationResponse** — API response for chat simulation
 | Field | Type | Description |
 |---|---|---|
 | `reply` | `string` | LLM-generated persona reply |
-| `retrievedContext` | `RetrievedMemory[]` | Top-K memories used to ground the reply |
+| `retrievedContext` | `ConversationPair[]` | Top-K pairs used to ground the reply |
 
 ---
 
@@ -329,12 +354,12 @@ Since DITTO uses ChromaDB (a vector database) rather than a relational database,
 
 ### 11.1 Development Environment Setup
 
-The project is built on **Next.js 16.1.7** with the App Router and **React 19.2.4**, using TypeScript throughout. The local AI stack requires two background services:
+The project is built on **Next.js 16** with the App Router and **React 19**, using TypeScript throughout. The local AI stack requires two background services:
 
 - **Ollama** — serves the `llama3` generation model and `nomic-embed-text` embedding model over HTTP at `http://127.0.0.1:11434`.
 - **ChromaDB** — runs as a local REST server at `http://127.0.0.1:8000`, storing vectors on disk in the `chroma/` directory.
 
-The Next.js development server is started with Turbopack (`next dev --turbopack`) for fast incremental builds. The `chromadb` npm package is declared as a `serverExternalPackage` in `next.config.mjs` to prevent it from being bundled by the client-side build.
+The Next.js development server is started with Turbopack (`bun run dev`) for fast incremental builds. The `chromadb` npm package is declared as a `serverExternalPackage` in `next.config.mjs` to prevent it from being bundled by the client-side build.
 
 ---
 
@@ -348,11 +373,11 @@ DD/MM/YY, H:MM [am/pm] - Author: Message body
 
 Lines that do not match the pattern are treated as continuations and appended to the previous message's content. After building the raw records, the parser:
 
-1. **Normalises timestamps** — converts 2-digit years to 4-digit (`YY → 20YY`), reformats dates to `YYYY-MM-DD`, and converts 12-hour AM/PM times to 24-hour format, handling all common meridiem spellings (`am`, `a.m`, `AM`, `A.M`).
-2. **Filters noise** — discards blank lines, `<Media omitted>` entries, and WhatsApp system notices (e.g. end-to-end encryption banners).
-3. **Generates stable IDs** — applies SHA-1 to each raw line to produce a deterministic message ID used for deduplication on upsert.
+1. **Normalises timestamps** — converts 2-digit years to 4-digit, reformats dates to `YYYY-MM-DD`, and converts 12-hour AM/PM times to 24-hour format.
+2. **Filters noise** — discards blank lines, `<Media omitted>` entries, bare URLs, and WhatsApp system notices.
+3. **Generates stable IDs** — applies SHA-1 to each raw line to produce a deterministic message ID.
 
-The exported helper `getPersonaMessages` performs a case-insensitive author filter, and `getAverageWordsPerMessage` computes the mean word count rounded to one decimal place.
+**`getConversationPairs`** implements a 4-message sliding window over the full message thread. For each persona reply it collects the preceding 4 messages (from any participant) as the `contextWindow`. Replies shorter than 4 characters or consisting solely of a URL are skipped, since they produce low-information embeddings that degrade retrieval quality.
 
 ---
 
@@ -360,63 +385,57 @@ The exported helper `getPersonaMessages` performs a case-insensitive author filt
 
 The extractor builds a `PersonalityProfile` in two stages:
 
-**Stage 1 — Statistical pre-processing:** A word-frequency pass over all persona messages identifies the top-8 words with length ≥ 3 and occurrence > 1. These are injected into the prompt as concrete phrase hints to steer the LLM toward observable vocabulary rather than generic descriptions.
+**Stage 1 — Statistical pre-processing:** A word-frequency pass over all persona messages identifies the top-8 words with length ≥ 3 and occurrence > 1.
 
-**Stage 2 — LLM-based extraction:** The first 80 messages (context-window budget) are formatted into a structured prompt that instructs Ollama/LLaMA 3 to return a strict JSON object with eight fields: `tone`, `communicationStyle`, `responseLength`, `commonPhrases`, `sentiment`, `vocabularyPatterns`, `relationshipSignals`, and `notes`. The raw model output is parsed by a brace-matching extractor that isolates the JSON block even when the model wraps it in prose. If parsing fails, a default profile populated with the pre-computed phrase hints is returned so the application never crashes due to a malformed LLM response.
+**Stage 2 — LLM-based extraction:** Instead of using only the first 80 messages, the extractor now samples up to 100 messages **evenly distributed across the full chat history** (stepped by `floor(total / 100)`), ensuring that both early and late conversational patterns are captured. The prompt provides two evidence sources to the LLM: a list of the persona's actual messages (as JSON-quoted strings) and a short timestamped transcript. The LLM is instructed to describe **observed** behaviour from the evidence rather than producing generic category labels.
 
 ---
 
 ### 11.4 Ollama Client Implementation (`lib/ollama.ts`)
 
-A thin HTTP wrapper exposes two functions:
+Three functions are exposed:
 
-- **`generateWithOllama(prompt)`** — issues a `POST /api/generate` call with `stream: false` and temperature `0.7`. The `cache: "no-store"` fetch option prevents Next.js from caching LLM responses.
-- **`embedWithOllama(texts[])`** — issues a `POST /api/embed` call using `nomic-embed-text`. The function handles both the legacy `embedding` (single vector) and current `embeddings` (array) response shapes to maintain compatibility across Ollama versions.
-
-All three service coordinates (`OLLAMA_URL`, `OLLAMA_MODEL`, `OLLAMA_EMBED_MODEL`) are read from environment variables with sensible local defaults.
+- **`generateWithOllama(prompt)`** — issues `POST /api/generate` with `stream: false` and temperature `0.7`. Used only for personality profile extraction.
+- **`chatWithOllama(system, history, userMessage)`** — issues `POST /api/chat` with a structured `messages` array: `[system, ...history, user]`. This allows Ollama to maintain proper conversational context across turns rather than treating each call as an isolated prompt. Temperature is set to `0.85` to allow slight natural variation while remaining true to the persona's style.
+- **`embedWithOllama(texts[])`** — issues `POST /api/embed` using `nomic-embed-text`. Handles both `embeddings[]` (current) and `embedding` (legacy) response shapes.
 
 ---
 
 ### 11.5 Chroma Memory Store Implementation (`lib/chroma.ts`)
 
-The Chroma client is initialised by parsing `CHROMA_URL` into a `HttpClient` with explicit hostname, port, and SSL flag. All vectors are stored in a single collection named `ditto_memories_v2`.
+The collection has been redesigned from storing **individual messages** to storing **conversation pairs**. The key architectural shift is that embeddings are computed on the **context window** (what was said before the persona replied), not on the reply itself. This means ChromaDB retrieval answers the question *"what situation is most similar to what the user just said?"* rather than *"what did the persona say that sounds similar?"*.
 
-- **`storePersonaMemories`** — embeds every persona message via Ollama, then calls `collection.upsert` with composite IDs (`personaName:sha1`), the raw message text as the document, and `{ personaName, author, timestamp }` as searchable metadata. Upsert semantics mean re-running persona creation is idempotent.
-- **`queryPersonaMemories`** — embeds the incoming user message, then calls `collection.query` with a `$eq` filter on `personaName` and `nResults: limit` (default 5). The results include cosine-distance scores that are surfaced in the UI so users can inspect retrieval quality.
+- **`storeConversationPairs`** — embeds each pair's `contextWindow` text, then upserts with the `personaReply` as the document. IDs are SHA-1 hashes of `personaName:contextWindow:reply`, making re-runs fully idempotent. In-memory deduplication runs before the upsert call to prevent ChromaDB from receiving duplicate IDs in a single batch.
+- **`queryConversationPairs`** — embeds the incoming user message and queries ChromaDB using a `personaName` `$eq` filter, returning up to 6 `ConversationPair` objects sorted by cosine distance.
 
 ---
 
 ### 11.6 API Route Implementation (`app/api/personas/`)
 
 **`POST /api/personas`** — orchestrates the full persona-creation pipeline:
-1. Validates that both `personaName` and `chatHistory` are present and non-empty; returns HTTP 400 otherwise.
-2. Parses the chat and confirms the chosen author has at least one message.
-3. Computes `PersonaSummary` statistics (total messages, average word count, all unique authors).
-4. Calls `buildPersonalityProfile` (Ollama) then `storePersonaMemories` (Chroma) in sequence.
-5. Returns the `PersonaRecord` plus the stored-memory count; the first six sample messages provide an immediate chat preview.
+1. Parses the full chat into `ChatMessage[]`.
+2. Extracts `ConversationPair[]` via `getConversationPairs` (4-message sliding window over the entire thread).
+3. Calls `buildPersonalityProfile` (Ollama) for the UI display profile.
+4. Calls `storeConversationPairs` (Chroma) to embed and persist all pairs.
 
-**`POST /api/personas/chat`** — executes the RAG simulation loop:
-1. Validates `personaName`, `message`, and `profile`.
-2. Fetches the top-5 semantically nearest memories from Chroma (filtered by persona).
-3. Composes a persona-grounded prompt: the full `PersonalityProfile` JSON, the retrieved memories with timestamps and distance scores, and the user message.
-4. Calls `generateWithOllama` and returns the reply alongside the retrieved context for display.
-
-Both routes return descriptive error messages that include the relevant service URL on infrastructure failures, aiding local debugging.
+**`POST /api/personas/chat`** — executes the pair-based RAG simulation loop:
+1. Accepts `conversationHistory` (last 6 turns) alongside the standard fields.
+2. Retrieves top-6 pairs from ChromaDB by embedding the user message against stored context-window vectors.
+3. Applies the **relevance gate** (`RELEVANCE_THRESHOLD = 1.3`): pairs at or above this distance are excluded from the few-shot prompt. For `nomic-embed-text`, cosine distances in the range 0.9–1.1 represent genuine semantic similarity; distances above 1.3 indicate no meaningful relation.
+4. Builds a system prompt containing: a role declaration identifying the persona as a **real person** (not a fictional character), a brief style summary from the profile, and the usable pairs formatted as labelled few-shot examples. If no pairs pass the gate, the prompt notes this and instructs the LLM to rely on general style only.
+5. Calls `chatWithOllama(systemPrompt, conversationHistory, message)`, passing history as structured chat turns so the model maintains coherence across the conversation.
 
 ---
 
 ### 11.7 Frontend Implementation (`components/ditto-studio.tsx`)
 
-The entire client is a single React component using `useState` for all local state and `useTransition` for the two async operations (persona creation and chat simulation), which keeps the UI responsive during LLM calls that may take several seconds.
-
 Key implementation decisions:
 
-- **Duplicate regex** — the same `CHAT_LINE_REGEX` used by the server-side parser is replicated in the component to extract `personaOptions` (unique author names) client-side immediately after upload, without a network round-trip.
-- **Format validation** — `hasValidChatFormat` runs a lightweight regex test before accepting a file, rejecting non-WhatsApp uploads before they reach the API.
-- **Chat history accumulation** — each simulation appends a `{ role, content }` pair to `chatTurns`, building a persistent conversation thread within the session.
-- **Smooth scrolling** — after file upload, `scrollIntoView({ behavior: "smooth" })` moves the viewport to the chat preview automatically.
-
-The UI is composed entirely of **shadcn/ui** primitives (Card, Button, Textarea, Badge, Alert, ScrollArea, RadioGroup) styled with Tailwind CSS v4, and supports dark mode via `next-themes`.
+- **Conversation log** — the chat simulation panel now shows a scrollable monospace log above the message textarea, formatted as `DD/MM/YY, HH:MM - ROLE: content`. The textarea is used only for new input; the log accumulates across turns.
+- **History passing** — before each simulation request, the last 6 `chatTurns` are mapped to `{ role, content }` objects and sent as `conversationHistory`. This enables the LLM to maintain multi-turn coherence without re-stating context in the user message.
+- **Retrieved context display** — the Retrieved Context panel now shows `ConversationPair` cards. Each card displays the full multi-turn `contextWindow` in a monospace block and the persona's actual reply highlighted with a left border. Distance badges are colour-coded: **default** (dark) = distance < 1.0 (highly relevant), **secondary** = 1.0–1.3 (acceptable), **outline** = ≥ 1.3 (distant, not used in prompt).
+- **Duplicate regex** — the same `CHAT_LINE_REGEX` used server-side is replicated in the component to extract persona options client-side without a network round-trip.
+- **Format validation** — `hasValidChatFormat` runs a lightweight regex test before accepting a file.
 
 ---
 
@@ -430,12 +449,15 @@ Since the project does not include an automated test suite, system testing was p
 |---|---|---|---|
 | `chat-parser.ts` | Valid WhatsApp `.txt` file | Messages parsed with correct author, timestamp, content | Pass |
 | `chat-parser.ts` | Multi-line message (continuation line) | Content appended to previous message | Pass |
-| `chat-parser.ts` | `<Media omitted>` lines | Filtered out, not included in output | Pass |
+| `chat-parser.ts` | `<Media omitted>` lines | Filtered out | Pass |
 | `chat-parser.ts` | 12-hour AM/PM timestamp (`3:05 pm`) | Normalised to `15:05` | Pass |
+| `chat-parser.ts` | `getConversationPairs` on 100-message chat | Pairs generated with non-empty contextWindow and reply | Pass |
+| `chat-parser.ts` | Reply < 4 chars or bare URL | Pair skipped, not stored | Pass |
 | `personality.ts` | Valid JSON returned by Ollama | Profile parsed correctly | Pass |
 | `personality.ts` | Malformed/prose LLM response | Fallback profile returned, no crash | Pass |
 | `ollama.ts` | Ollama service offline | Descriptive error with service URL thrown | Pass |
 | `chroma.ts` | Re-running persona creation | Upsert deduplicates; no duplicate vectors | Pass |
+| `chroma.ts` | Duplicate IDs in same batch | In-memory dedup removes before upsert | Pass |
 
 ### 12.2 API Integration Testing
 
@@ -446,6 +468,7 @@ Since the project does not include an automated test suite, system testing was p
 | `POST /api/personas` | Valid request, Ollama running | 200 with PersonaRecord | Pass |
 | `POST /api/personas/chat` | Missing `profile` field | 400 Bad Request | Pass |
 | `POST /api/personas/chat` | Valid request after persona creation | 200 with reply + retrievedContext | Pass |
+| `POST /api/personas/chat` | All pairs above relevance threshold | 200 — fallback style prompt used | Pass |
 | `POST /api/personas/chat` | Ollama service offline | 500 with error detail | Pass |
 
 ### 12.3 End-to-End UI Testing
@@ -453,31 +476,33 @@ Since the project does not include an automated test suite, system testing was p
 **Test Scenario 1 — Full Persona Creation Flow:**
 1. Upload a WhatsApp `.txt` export → persona options auto-populate from the file.
 2. Select a speaker and click **Create Persona** → loading state appears.
-3. After 15–30 seconds (LLM call), the profile JSON and stats cards render correctly.
-4. The ChromaDB memory count matches the number of messages belonging to the selected persona.
+3. After 15–30 seconds (LLM call + embedding), the profile JSON and stats cards render correctly.
+4. The stored pair count is displayed (will be less than total message count due to filtering and deduplication).
 
 **Test Scenario 2 — Chat Simulation Flow:**
 1. With a persona created, type a message and click **Simulate Reply**.
-2. The reply appears in the chat bubble thread.
-3. The **Retrieved Context** panel displays up to 5 memory cards with author, timestamp, and distance badges.
-4. Multiple turns accumulate correctly in the chat thread.
+2. The reply appears in the monospace conversation log.
+3. The **Retrieved Context** panel displays up to 6 pair cards, each showing the context window, the persona's actual reply, and a colour-coded distance badge.
+4. Multiple turns accumulate correctly; subsequent replies maintain conversational coherence from the history.
 
 **Test Scenario 3 — Edge Cases:**
-- Uploading a non-WhatsApp file (e.g., plain paragraph text) → error alert shown, no API call made.
-- Attempting to chat before creating a persona → error alert: "Please create a persona first."
-- Chroma service offline during persona creation → 500 error surfaced gracefully in the UI alert.
+- Uploading a non-WhatsApp file → error alert shown, no API call made.
+- Attempting to chat before creating a persona → error alert shown.
+- All retrieved pairs above the 1.3 threshold → system prompt switches to style-only mode; reply is still generated.
+- Persona name that matches a well-known fictional character → role declaration in system prompt prevents character confusion.
 
 ### 12.4 Performance Observations
 
 | Operation | Observed Duration |
 |---|---|
 | Chat parsing (500-message file) | < 50 ms (client-side) |
+| Conversation pair extraction | < 10 ms (server-side) |
 | Personality extraction (LLaMA 3, CPU) | 15 – 40 seconds |
-| Embedding 200 messages (nomic-embed-text) | 20 – 60 seconds |
+| Embedding all pairs (nomic-embed-text) | 20 – 90 seconds (pair count dependent) |
 | Chat simulation (single turn) | 10 – 25 seconds |
-| Chroma vector query (top-5) | < 200 ms |
+| Chroma vector query (top-6) | < 200 ms |
 
-Performance is dominated by LLM inference time on CPU. GPU acceleration via CUDA or Apple Metal reduces generation time by approximately 3–5×.
+Performance is dominated by LLM inference time on CPU. GPU acceleration via CUDA or Apple Metal reduces generation time by approximately 3–5×. Embedding time scales with the number of conversation pairs extracted; a 500-message chat typically produces 300–400 storable pairs.
 
 ---
 
@@ -488,41 +513,42 @@ Performance is dominated by LLM inference time on CPU. GPU acceleration via CUDA
 When provided with a WhatsApp chat export of approximately 300–500 messages, DITTO successfully:
 
 - **Parsed** all messages with correct author attribution, timestamp normalisation, and noise filtering in under 100 ms.
-- **Extracted** a structured `PersonalityProfile` that accurately reflected observable communication traits — including casual tone, short response length, and domain-specific vocabulary — with no manual intervention.
-- **Embedded and stored** all persona messages as 768-dimensional vectors in ChromaDB, producing a memory store queryable by semantic similarity.
-
-The LLM-generated profiles demonstrated meaningful differentiation between different speakers in the same conversation — a speaker who uses longer, explanatory messages received a `communicationStyle` of "structured and informative" while a speaker who uses short affirmations received "brief and reactive."
+- **Extracted** conversation pairs via a 4-message sliding window, producing a semantically richer memory store than isolated individual messages.
+- **Embedded and stored** the context side of each pair as 768-dimensional vectors in ChromaDB, enabling retrieval by situational similarity rather than surface-level word matching.
+- **Generated** a structured `PersonalityProfile` from a representative sample of the persona's actual messages, with the LLM grounded in concrete evidence rather than abstract categorisation.
 
 ### 13.2 Chat Simulation Results
 
-The RAG-augmented simulation produced noticeably more grounded replies than a baseline prompt containing only the personality profile:
+The pair-based RAG simulation with few-shot prompting produced substantially more authentic replies than the previous isolated-message approach:
 
-- **Retrieved memories were topically relevant** to the query in the majority of test cases, confirming that `nomic-embed-text` embeddings captured sufficient semantic meaning for effective retrieval.
-- **Distance scores** (cosine distance) were consistently low (0.05 – 0.25) for on-topic queries and higher (0.40 – 0.70) for out-of-domain queries, providing a transparent signal of retrieval confidence.
-- **Generated replies reflected the extracted style** — a persona tagged as "casual, uses short replies and emoji-adjacent punctuation" produced concise, informal outputs consistent with that description.
+- **Retrieved pairs were situationally relevant** — searching the context side of stored pairs surfaces situations that match the incoming message, not just semantically similar words from the reply side.
+- **Few-shot examples from real pairs** allowed the LLM to pattern-match on actual response evidence rather than interpreting an abstract JSON profile description.
+- **Conversation history** passed as structured chat turns prevented tone resets between turns and enabled coherent multi-turn exchanges.
+- **The relevance gate** at distance 1.3 correctly excluded unrelated pairs while still providing examples for the majority of on-topic queries. When no relevant pairs were found, the system fell back to style-only guidance without crashing or generating off-brand responses.
+- **Persona name disambiguation** — explicitly identifying the persona as a real person in the system prompt eliminated LLM hallucinations caused by names matching fictional characters or other associations in the model's training data.
 
 ### 13.3 Privacy and Offline Validation
 
-All processing — parsing, embedding, generation, and storage — completed without any outbound network traffic to external servers. Monitoring network activity during a full persona-creation cycle confirmed zero external HTTP requests. This validates the core design goal: the system is fully operable on an air-gapped machine.
+All processing — parsing, embedding, generation, and storage — completed without any outbound network traffic to external servers. This validates the core design goal: the system is fully operable on an air-gapped machine.
 
 ### 13.4 Limitations
 
 | Limitation | Impact | Mitigation |
 |---|---|---|
-| No automated test suite | Regressions may go undetected | Add Jest/Vitest unit tests for parser and profile normaliser |
-| LLM output variability | Profile quality varies between runs | Temperature tuning; structured output enforcement |
-| Single-collection Chroma design | All personas share one collection; large deployments may see metadata filter slowdowns | Partition into per-persona collections at scale |
-| First 80 messages only for profile | Later conversational shifts not captured | Sliding-window or random sampling strategy |
+| No automated test suite | Regressions may go undetected | Add Jest/Vitest unit tests for parser and pair extractor |
+| LLM output variability | Reply quality varies between runs | Temperature tuning; structured output enforcement |
+| Single-collection Chroma design | All personas share one collection | Partition into per-persona collections at scale |
 | Session-only chat history | Conversation resets on page reload | Persist `chatTurns` to `localStorage` or a backend store |
-| No authentication or multi-user support | Single-user, local deployment only | Add session management for shared or cloud deployments |
+| No authentication or multi-user support | Single-user, local deployment only | Add session management for shared deployments |
+| Pair count grows with chat size | Embedding large chats takes longer | Batch-limit upserts; background processing |
 
 ### 13.5 Discussion
 
-DITTO demonstrates that a fully local, privacy-preserving digital twin pipeline is achievable with commodity hardware and open-source tooling. The combination of structured LLM prompting for profile extraction and vector-similarity retrieval for memory grounding produces persona simulations that are both stylistically consistent and contextually relevant — without any fine-tuning or labelled training data.
+DITTO demonstrates that a fully local, privacy-preserving digital twin pipeline is achievable with commodity hardware and open-source tooling. The architectural evolution from **individual message storage** to **conversation-pair storage** is the most impactful design change: by embedding the context side of each (trigger → response) pair, the vector database retrieves *situations* that resemble the incoming message rather than *words* that resemble the reply — a fundamentally more useful retrieval signal for persona simulation.
 
-The key architectural insight is the separation of **identity** (the `PersonalityProfile` JSON, injected into every prompt) from **memory** (the ChromaDB collection, queried per turn). This allows the persona's voice to remain stable across all interactions while individual replies are dynamically grounded in the most relevant past conversations.
+The combination of few-shot examples drawn from real pairs, a strict system prompt that prevents AI-assistant behaviour, and multi-turn conversation history passed as structured chat turns produces persona simulations that are stylistically consistent, contextually grounded, and coherent across multiple exchanges — all without any fine-tuning or labelled training data.
 
-Compared to cloud-based alternatives such as CharacterAI or GPT custom instructions, DITTO trades convenience (no setup required) for privacy and transparency: users can inspect the extracted profile in full, observe which memories were retrieved for each reply, and verify that no data left their machine. For use cases involving sensitive personal communications — the primary target of this system — that trade-off is the correct one.
+Compared to cloud-based alternatives such as CharacterAI or GPT custom instructions, DITTO trades convenience for privacy and transparency: users can inspect the extracted profile in full, observe which context-reply pairs were retrieved and their distance scores, and verify that no data left their machine.
 
 ---
 
