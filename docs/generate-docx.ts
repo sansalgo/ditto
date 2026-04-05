@@ -283,6 +283,243 @@ function screenshotTable(left: ScreenshotEntry, right: ScreenshotEntry, opts: Sc
   })
 }
 
+// ── Front-page helpers (no header/footer section) ────────────────────────────
+
+function fCenter(text: string, opts: { size?: number; bold?: boolean; spaceBefore?: number; spaceAfter?: number } = {}): Paragraph {
+  return new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { before: opts.spaceBefore ?? 120, after: opts.spaceAfter ?? 120, line: 276 },
+    children: [
+      new TextRun({
+        text,
+        font: "Times New Roman",
+        size: opts.size ?? 24,
+        bold: opts.bold ?? false,
+      }),
+    ],
+  })
+}
+
+function fJustify(text: string, opts: { size?: number; bold?: boolean; spaceBefore?: number; spaceAfter?: number } = {}): Paragraph {
+  return new Paragraph({
+    alignment: AlignmentType.JUSTIFIED,
+    spacing: { before: opts.spaceBefore ?? 80, after: opts.spaceAfter ?? 80, line: 360 },
+    children: [
+      new TextRun({
+        text,
+        font: "Times New Roman",
+        size: opts.size ?? 24,
+        bold: opts.bold ?? false,
+      }),
+    ],
+  })
+}
+
+function fRight(text: string, opts: { size?: number; bold?: boolean; spaceBefore?: number } = {}): Paragraph {
+  return new Paragraph({
+    alignment: AlignmentType.RIGHT,
+    spacing: { before: opts.spaceBefore ?? 80, after: 80, line: 276 },
+    children: [
+      new TextRun({
+        text,
+        font: "Times New Roman",
+        size: opts.size ?? 24,
+        bold: opts.bold ?? false,
+      }),
+    ],
+  })
+}
+
+
+// ── Front pages content ───────────────────────────────────────────────────────
+
+const front_children: FileChild[] = []
+const fp = (...items: FileChild[]) => front_children.push(...items)
+
+// ── PAGE 1: TITLE PAGE ────────────────────────────────────────────────────────
+
+fp(
+  spacer(1440),
+  fCenter("MCA MINI PROJECT REPORT", { size: 28, bold: true, spaceBefore: 0, spaceAfter: 240 }),
+  fCenter("ON", { size: 28, bold: true, spaceBefore: 0, spaceAfter: 240 }),
+  fCenter('"DITTO — DIGITAL TWIN STUDIO"', { size: 28, bold: true, spaceBefore: 0, spaceAfter: 480 }),
+  fCenter("Submitted in partial fulfillment of the requirements", { size: 24, spaceBefore: 0, spaceAfter: 0 }),
+  fCenter("for the award of the degree of", { size: 24, spaceBefore: 0, spaceAfter: 240 }),
+  fCenter("MASTER OF COMPUTER APPLICATIONS (MCA)", { size: 24, spaceBefore: 0, spaceAfter: 480 }),
+  fCenter("Submitted by", { size: 24, spaceBefore: 0, spaceAfter: 240 }),
+  fCenter("SANTHOSHKUMAR S", { size: 24, bold: true, spaceBefore: 0, spaceAfter: 0 }),
+  fCenter("Register Number: 241MCAN0014", { size: 24, spaceBefore: 0, spaceAfter: 480 }),
+  fCenter("Under the Guidance of", { size: 24, spaceBefore: 0, spaceAfter: 240 }),
+  fCenter("Dr. D. Saraswathi", { size: 24, bold: true, spaceBefore: 0, spaceAfter: 0 }),
+  fCenter("Associate Professor", { size: 24, spaceBefore: 0, spaceAfter: 0 }),
+  fCenter("Department of Computer Science", { size: 24, spaceBefore: 0, spaceAfter: 600 }),
+  fCenter("DEPARTMENT OF COMPUTER APPLICATIONS", { size: 24, bold: true, spaceBefore: 0, spaceAfter: 0 }),
+  fCenter("BHARATHIAR UNIVERSITY", { size: 24, bold: true, spaceBefore: 0, spaceAfter: 0 }),
+  fCenter("Coimbatore – 641 046", { size: 24, spaceBefore: 0, spaceAfter: 0 }),
+  fCenter("Academic Year: 2025 – 2026", { size: 24, spaceBefore: 0, spaceAfter: 0 }),
+  pageBreak()
+)
+
+// ── PAGE 2: CERTIFICATE ───────────────────────────────────────────────────────
+
+fp(
+  spacer(720),
+  fCenter("CERTIFICATE", { size: 28, bold: true, spaceBefore: 0, spaceAfter: 480 }),
+  fJustify(
+    'This is to certify that the Mini Project work titled "DITTO — DIGITAL TWIN STUDIO" submitted to Bharathiar University in partial fulfillment of the requirements for the award of the Degree of Master of Computer Applications is a record of the original work done by SANTHOSHKUMAR S (Register No: 241MCAN0014) under my supervision and guidance and that this project work has not formed the basis for the award of any Degree/Diploma/Associateship/Fellowship or similar title to any candidate of any University.',
+    { spaceBefore: 0, spaceAfter: 480 }
+  ),
+  fJustify("Place: Coimbatore", { spaceBefore: 0, spaceAfter: 0 }),
+  fJustify("Date:", { spaceBefore: 0, spaceAfter: 600 }),
+  fRight("Signature of the Guide", { spaceBefore: 0 }),
+  fRight("Dr. D. Saraswathi", { spaceBefore: 0 }),
+  fRight("Associate Professor", { spaceBefore: 0 }),
+  fRight("Department of Computer Science", { spaceBefore: 0, spaceAfter: 480 } as Parameters<typeof fRight>[1]),
+  fJustify("Programme Co-ordinator", { spaceBefore: 240, spaceAfter: 0 }),
+  fJustify("(with Seal)", { spaceBefore: 0, spaceAfter: 480 }),
+  fJustify("Forwarded by", { spaceBefore: 0, spaceAfter: 0 }),
+  fJustify("Director", { spaceBefore: 0, spaceAfter: 0 }),
+  fJustify("Centre for Distance and Online Education", { spaceBefore: 0, spaceAfter: 0 }),
+  fJustify("Bharathiar University", { spaceBefore: 0, spaceAfter: 0 }),
+  fJustify("Coimbatore – 641 046", { spaceBefore: 0 }),
+  pageBreak()
+)
+
+// ── PAGE 3: DECLARATION ───────────────────────────────────────────────────────
+
+fp(
+  spacer(720),
+  fCenter("DECLARATION", { size: 28, bold: true, spaceBefore: 0, spaceAfter: 480 }),
+  fJustify(
+    'I hereby declare that this project work titled "DITTO — DIGITAL TWIN STUDIO" submitted to the Centre for Distance and Online Education, Bharathiar University is a record of original work done by SANTHOSHKUMAR S under the supervision and guidance of Dr. D. Saraswathi and that this project work has not formed the basis for the award of any Degree/Diploma/Associateship/Fellowship or similar title to any candidate of any University.',
+    { spaceBefore: 0, spaceAfter: 600 }
+  ),
+  fRight("SANTHOSHKUMAR S", { spaceBefore: 0 }),
+  fRight("Signature of the candidate", { bold: true, spaceBefore: 0, spaceAfter: 480 } as Parameters<typeof fRight>[1]),
+
+  // ── Details table (label | value, no borders) ────────────────────────────
+  new Table({
+    width: { size: CONTENT_WIDTH, type: WidthType.AUTO },
+    columnWidths: [2800, 6560],
+    rows: [
+      ["Name",          "SANTHOSHKUMAR S"],
+      ["Enrolment No", "241MCAN0014"],
+      ["Register No",  "241MCAN0014"],
+      ["Course",        "Master of Computer Applications (MCA)"],
+      ["Place",         "Coimbatore"],
+      ["Date",          ""],
+    ].map(([label, value]) =>
+      new TableRow({
+        children: [
+          new TableCell({
+            borders: noBorders,
+            margins: { top: 60, bottom: 60, left: 0, right: 120 },
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: label, font: "Times New Roman", size: 22 })],
+              }),
+            ],
+          }),
+          new TableCell({
+            borders: noBorders,
+            margins: { top: 60, bottom: 60, left: 0, right: 0 },
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: ": " + value, font: "Times New Roman", size: 22 })],
+              }),
+            ],
+          }),
+        ],
+      })
+    ),
+  }),
+
+  spacer(480),
+
+  // ── Signature row (left | right, no borders) ─────────────────────────────
+  new Table({
+    width: { size: CONTENT_WIDTH, type: WidthType.DXA },
+    columnWidths: [4680, 4680],
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            borders: noBorders,
+            margins: { top: 80, bottom: 0, left: 0, right: 0 },
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: "Signature of the Guide", font: "Times New Roman", size: 22 })],
+              }),
+            ],
+          }),
+          new TableCell({
+            borders: noBorders,
+            margins: { top: 80, bottom: 0, left: 0, right: 0 },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [new TextRun({ text: "Countersigned by the Co-ordinator", font: "Times New Roman", size: 22 })],
+              }),
+            ],
+          }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({
+            borders: noBorders,
+            margins: { top: 0, bottom: 80, left: 0, right: 0 },
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: "(With seal)", font: "Times New Roman", size: 22 })],
+              }),
+            ],
+          }),
+          new TableCell({
+            borders: noBorders,
+            margins: { top: 0, bottom: 80, left: 0, right: 0 },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [new TextRun({ text: "(With Seal)", font: "Times New Roman", size: 22 })],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  }),
+
+  pageBreak()
+)
+
+// ── PAGE 4: ACKNOWLEDGEMENT ───────────────────────────────────────────────────
+
+fp(
+  spacer(720),
+  fCenter("ACKNOWLEDGEMENT", { size: 28, bold: true, spaceBefore: 0, spaceAfter: 480 }),
+  fJustify(
+    "I express my sincere and heartfelt gratitude to Bharathiar University, Coimbatore, for providing me the opportunity to undertake this Mini Project as part of the Master of Computer Applications programme.",
+    { spaceBefore: 0, spaceAfter: 240 }
+  ),
+  fJustify(
+    'I wish to express my deep sense of gratitude to my guide, Dr. D. Saraswathi, Associate Professor, Department of Computer Science, for her valuable guidance, continuous encouragement, constructive suggestions and constant support throughout the completion of this project work titled "DITTO — DIGITAL TWIN STUDIO".',
+    { spaceBefore: 0, spaceAfter: 240 }
+  ),
+  fJustify(
+    "I extend my thanks to the Programme Co-ordinator and the faculty members of the Department for their support and encouragement during the course of this project.",
+    { spaceBefore: 0, spaceAfter: 240 }
+  ),
+  fJustify(
+    "I also thank my family and friends for their moral support, motivation and encouragement which helped me to successfully complete this project.",
+    { spaceBefore: 0, spaceAfter: 480 }
+  ),
+  fJustify("Place: Coimbatore", { spaceBefore: 0, spaceAfter: 0 }),
+  fJustify("Date:", { spaceBefore: 0, spaceAfter: 600 }),
+  fRight("SANTHOSHKUMAR S", { spaceBefore: 0 }),
+  fRight("241MCAN0014", { spaceBefore: 0 })
+)
+
 // ── Document children array ───────────────────────────────────────────────────
 
 const doc_children: FileChild[] = []
@@ -1497,6 +1734,17 @@ const doc = new Document({
     ],
   },
   sections: [
+    // ── Section 1: Front pages — no header, no footer ──────────────────────
+    {
+      properties: {
+        page: {
+          size: { width: 12240, height: 15840 },
+          margin: PAGE_MARGIN,
+        },
+      },
+      children: front_children,
+    },
+    // ── Section 2: Main report — with header and footer ────────────────────
     {
       properties: {
         page: {
